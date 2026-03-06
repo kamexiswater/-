@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Browser Smash - Sword Visualized</title>
+    <title>Browser Smash - Gun Balanced</title>
     <style>
         body { margin: 0; background: #1a1a1a; color: white; font-family: sans-serif; text-align: center; overflow: hidden; }
         #menu, #result-screen {
@@ -19,7 +19,7 @@
         #ui-container { margin-top: 5px; display: flex; justify-content: center; gap: 20px; }
         .status-card { background: rgba(0,0,0,0.8); padding: 8px; border-radius: 10px; border: 2px solid #444; min-width: 150px; }
         .damage-percent { font-size: 28px; font-weight: bold; margin: 2px 0; }
-        .sp-gauge { font-size: 10px; color: #ff0; }
+        .sp-gauge, .ammo-gauge { font-size: 10px; color: #ff0; margin-top: 2px; }
         
         #game-stage {
             width: 1100px; height: 600px; margin: 5px auto;
@@ -70,8 +70,8 @@
 
     <div id="game-container">
         <div id="ui-container">
-            <div class="status-card">P1 <div id="p1-val" class="damage-percent">0%</div><div id="p1-sub">●●●</div><div id="p1-sp" class="sp-gauge">SP: READY</div></div>
-            <div class="status-card">P2 <div id="p2-val" class="damage-percent">0%</div><div id="p2-sub">●●●</div><div id="p2-sp" class="sp-gauge">SP: READY</div></div>
+            <div class="status-card">P1 <div id="p1-val" class="damage-percent">0%</div><div id="p1-sub">●●●</div><div id="p1-sp" class="sp-gauge">SP: READY</div><div id="p1-ammo" class="ammo-gauge"></div></div>
+            <div class="status-card">P2 <div id="p2-val" class="damage-percent">0%</div><div id="p2-sub">●●●</div><div id="p2-sp" class="sp-gauge">SP: READY</div><div id="p2-ammo" class="ammo-gauge"></div></div>
         </div>
         <div id="game-stage"><div id="overlay"></div></div>
     </div>
@@ -98,17 +98,17 @@ class Fighter {
     constructor(id, x, color, label) {
         this.id = id; this.el = null; this.startX = x; this.color = color; this.label = label;
         this.stock = 3; this.spReady = true; this.damage = 0;
+        this.ammo = 12; this.isReloading = false;
     }
     reset(full) {
         if(full) this.stock = 3;
-        this.damage = 0;
+        this.damage = 0; this.ammo = 12; this.isReloading = false;
         this.x = this.startX; this.y = 350; this.oldY = 350; this.vx = 0; this.vy = 0;
         this.dir = (this.x < 550) ? 1 : -1; this.jumps = 0; this.isAtk = false;
         this.controls = getControls(this.id);
         this.isInvincible = true; setTimeout(() => this.isInvincible = false, 1500);
         this.type = document.getElementById(this.id==="p1"?"type1":"type2").value;
         
-        // 剣タイプ(sword)のノックバックを1.7から1.9に微強化
         const stats = { fighter: [14, 0, 0, 450], sword: [12, 7, 14, 350], gun: [8, 8, 20, 160] };
         [this.meleeP, this.projP, this.projS, this.cd] = stats[this.type];
 
@@ -134,17 +134,38 @@ class Fighter {
         document.getElementById(this.id+"-val").innerText = Math.floor(this.damage) + "%";
         document.getElementById(this.id+"-sub").innerText = "●".repeat(Math.max(0, this.stock));
         document.getElementById(this.id+"-sp").innerText = this.spReady ? "SP: READY" : "SP: CHARGING";
+        
+        // 銃タイプ専用UI表示
+        const ammoEl = document.getElementById(this.id+"-ammo");
+        if(this.type === 'gun') {
+            ammoEl.innerText = this.isReloading ? "RELOADING..." : `AMMO: ${this.ammo}/12`;
+            ammoEl.style.color = this.isReloading ? "#ff4757" : "#00ffff";
+        } else {
+            ammoEl.innerText = "";
+        }
     }
     out() { this.stock--; if(this.stock <= 0) endGame(this.id==="p1"?"P2":"P1"); else { showEffect("K.O."); this.reset(false); } }
     
     attack(target) {
-        if(this.isAtk) return; this.isAtk = true;
+        if(this.isAtk) return;
+        
+        // 銃のリロードチェック
+        if(this.type === 'gun') {
+            if(this.isReloading) return;
+            if(this.ammo <= 0) {
+                this.isReloading = true;
+                setTimeout(() => { this.ammo = 12; this.isReloading = false; }, 2500);
+                return;
+            }
+        }
+
+        this.isAtk = true;
         this.dir = (target.x > this.x) ? 1 : -1;
 
         if(this.type === 'sword') {
             const sw = document.getElementById(this.id + "-sword");
             if(sw) sw.style.transform = "rotate(90deg)";
-            const range = 105; // 剣のリーチを少し拡大
+            const range = 105;
             if(Math.abs(this.x - target.x) < range && Math.abs(this.y - target.y) < 70) this.hit(target, this.meleeP, 1.9);
             setTimeout(() => { if(sw) sw.style.transform = "rotate(0deg)"; }, 200);
         } else if(this.type === "fighter") {
@@ -152,14 +173,27 @@ class Fighter {
             if(Math.abs(this.x - target.x) < range && Math.abs(this.y - target.y) < 65) this.hit(target, this.meleeP, 1.7);
         } else {
             this.fireProjectile(this.projP, this.projS);
+            this.ammo--;
         }
         setTimeout(()=>this.isAtk=false, this.cd);
     }
 
     fireProjectile(pwr, speed) {
-        const p = { x: this.x + (this.dir*30), y: this.y + 25, vx: this.dir*speed, owner: this, pwr, el: document.createElement("div") };
-        p.el.className = "projectile"; p.el.style.background = (this.type==="sword"?"#00ffff":"#ffff00");
-        document.getElementById("game-stage").appendChild(p.el); projectiles.push(p);
+        // 弾に射程距離(dist)と発射位置(startX)を追加
+        const p = { 
+            x: this.x + (this.dir*30), 
+            startX: this.x,
+            y: this.y + 25, 
+            vx: this.dir*speed, 
+            owner: this, 
+            pwr, 
+            maxRange: 450, // 射程制限
+            el: document.createElement("div") 
+        };
+        p.el.className = "projectile"; 
+        p.el.style.background = (this.type==="sword"?"#00ffff":"#ffff00");
+        document.getElementById("game-stage").appendChild(p.el); 
+        projectiles.push(p);
     }
 
     useSP(target) {
@@ -222,7 +256,9 @@ function loop() {
     } else {
         const lvl = parseInt(document.getElementById("com-lvl").value);
         let diff = p1.x - p2.x; let dist = Math.abs(diff);
-        if(dist > (p2.type==="gun" ? 300 : 40)) p2.vx += (diff > 0 ? 0.25 + lvl*0.12 : -0.25 - lvl*0.12);
+        if(dist > (p2.type==="gun" ? 250 : 40)) p2.vx += (diff > 0 ? 0.25 + lvl*0.12 : -0.25 - lvl*0.12);
+        
+        // COMの攻撃ロジック（リロード中以外）
         if(dist < 500 && Math.random() < 0.02 * lvl) p2.attack(p1);
         if(lvl >= 4 && p2.spReady && dist < 350 && Math.random() < 0.08) p2.useSP(p1);
         if((p2.y <= 120 && Math.random() < 0.05 * lvl) || p2.y < 50) { p2.vy = 12.8; p2.jumps++; }
@@ -232,13 +268,18 @@ function loop() {
     projectiles.forEach((p, i) => {
         p.x += p.vx; p.el.style.left = p.x+"px"; p.el.style.bottom = p.y+"px";
         let target = p.owner === p1 ? p2 : p1;
+        
+        // 当たり判定
         if(Math.abs(p.x-target.x)<35 && Math.abs(p.y-(target.y+30))<40) {
             if(!target.isInvincible) p.owner.hit(target, p.pwr, 1.0);
             p.el.remove(); projectiles.splice(i, 1);
-        } else if(p.x < -400 || p.x > 1500) { p.el.remove(); projectiles.splice(i, 1); }
+        } 
+        // 画面外または射程距離(maxRange)を超えたら消滅
+        else if(p.x < -400 || p.x > 1500 || Math.abs(p.x - p.startX) > p.maxRange) { 
+            p.el.remove(); projectiles.splice(i, 1); 
+        }
     });
 
-    // アイテムシステム：常に貫通
     if(document.getElementById("item-spawn").value === "on" && Math.random() < 0.004) {
         const type = Math.random() > 0.6 ? "heal" : "bomb";
         const it = { x: 100 + Math.random()*900, y: 650, vy: 0, type, el: document.createElement("div") };
