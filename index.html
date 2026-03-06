@@ -2,118 +2,320 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>Mini Smash Battle</title>
-<style>
+<title>Browser Smash</title>
 
+<style>
 body{
 margin:0;
-background:#1b1b1b;
-font-family:sans-serif;
+background:#111;
 color:white;
+font-family:sans-serif;
 text-align:center;
+}
+
+#menu{
+margin-top:30px;
+}
+
+button{
+font-size:18px;
+padding:10px 20px;
+margin:5px;
+cursor:pointer;
 }
 
 #game{
 width:900px;
 height:500px;
-margin:auto;
-position:relative;
-background:linear-gradient(#87ceeb,#e6faff);
+margin:20px auto;
+background:linear-gradient(#87ceeb,#dff7ff);
 border:4px solid black;
+position:relative;
 overflow:hidden;
+display:none;
 }
 
 .platform{
 position:absolute;
-bottom:50px;
+bottom:40px;
 width:100%;
 height:20px;
 background:#333;
 }
 
 .player{
-width:40px;
-height:60px;
 position:absolute;
+width:40px;
+height:70px;
 }
 
-#p1{background:red;}
-#p2{background:blue;}
+.head{
+width:20px;
+height:20px;
+background:#ffd1a4;
+border-radius:50%;
+margin:auto;
+}
+
+.body{
+width:6px;
+height:30px;
+background:white;
+margin:auto;
+}
+
+.arm{
+width:30px;
+height:4px;
+background:white;
+position:absolute;
+top:28px;
+left:5px;
+}
+
+.leg{
+width:6px;
+height:25px;
+background:white;
+position:absolute;
+bottom:0;
+}
+
+.leg.left{left:10px;}
+.leg.right{right:10px;}
 
 .attack{
 position:absolute;
 width:40px;
 height:20px;
 background:yellow;
-opacity:0.8;
+}
+
+.special{
+position:absolute;
+width:60px;
+height:30px;
+background:red;
+}
+
+#ui{
+font-size:20px;
 }
 
 #result{
 font-size:40px;
-margin-top:10px;
+height:50px;
 }
 
+#combo{
+font-size:28px;
+color:yellow;
+height:30px;
+}
 </style>
 </head>
+
 <body>
 
-<h2>Mini Smash</h2>
-<p>P1: A D 移動 / W ジャンプ / F 攻撃　
-P2: ← → 移動 / ↑ ジャンプ / / 攻撃</p>
+<div id="menu">
 
-<div>HP → <span id="hp"></span></div>
+<h1>Browser Smash</h1>
 
-<div id="game">
-<div class="platform"></div>
-<div id="p1" class="player"></div>
-<div id="p2" class="player"></div>
+<p>キャラ選択</p>
+
+<select id="char1">
+<option value="power">パワー</option>
+<option value="speed">スピード</option>
+<option value="balanced">バランス</option>
+</select>
+
+<select id="char2">
+<option value="power">パワー</option>
+<option value="speed">スピード</option>
+<option value="balanced">バランス</option>
+</select>
+
+<br><br>
+
+<button onclick="startGame('com')">COM戦</button>
+<button onclick="startGame('p2')">2人対戦</button>
+
 </div>
 
+<div id="ui">
+<span id="hp"></span>
+</div>
+
+<div id="combo"></div>
 <div id="result"></div>
+
+<div id="game">
+
+<div class="platform"></div>
+
+<div id="p1" class="player"></div>
+<div id="p2" class="player"></div>
+
+</div>
 
 <script>
 
 const game=document.getElementById("game")
+const menu=document.getElementById("menu")
+
+function human(el){
+el.innerHTML=`
+<div class="head"></div>
+<div class="body"></div>
+<div class="arm"></div>
+<div class="leg left"></div>
+<div class="leg right"></div>
+`
+}
+
+human(p1)
+human(p2)
+
+let mode="p2"
 
 const p1={
 el:document.getElementById("p1"),
-x:100,y:0,vx:0,vy:0,
-hp:100,
-dir:1
+x:150,y:0,vx:0,vy:0,
+dmg:0,dir:1,
+combo:0,lastHit:0
 }
 
 const p2={
 el:document.getElementById("p2"),
 x:700,y:0,vx:0,vy:0,
-hp:100,
-dir:-1
+dmg:0,dir:-1,
+combo:0,lastHit:0
 }
 
-let gameOver=false
 const keys={}
 
 document.addEventListener("keydown",e=>keys[e.key]=true)
 document.addEventListener("keyup",e=>keys[e.key]=false)
 
-function createAttack(player,target){
+function startGame(m){
+
+mode=m
+menu.style.display="none"
+game.style.display="block"
+
+applyCharacter(p1,document.getElementById("char1").value)
+applyCharacter(p2,document.getElementById("char2").value)
+
+reset()
+
+}
+
+function applyCharacter(p,type){
+
+if(type==="power"){
+p.attack=15
+p.speed=2.5
+}
+
+if(type==="speed"){
+p.attack=8
+p.speed=4
+}
+
+if(type==="balanced"){
+p.attack=10
+p.speed=3
+}
+
+}
+
+function reset(){
+
+p1.dmg=0
+p2.dmg=0
+
+p1.x=150
+p2.x=700
+
+p1.vx=p1.vy=0
+p2.vx=p2.vy=0
+
+}
+
+function attack(a,b){
 
 const atk=document.createElement("div")
 atk.className="attack"
 
-const ax=player.x+(player.dir*40)
+let ax=a.x+a.dir*40
 
 atk.style.left=ax+"px"
-atk.style.bottom=(70+player.y)+"px"
+atk.style.bottom=(60+a.y)+"px"
 
 game.appendChild(atk)
 
-setTimeout(()=>atk.remove(),150)
+setTimeout(()=>atk.remove(),120)
 
-const dist=Math.abs(ax-target.x)
+if(Math.abs(ax-b.x)<50 && Math.abs(a.y-b.y)<60){
 
-if(dist<50 && Math.abs(player.y-target.y)<60){
-target.hp-=10
-target.vx+=player.dir*6
+b.dmg+=a.attack
+
+let knock=(b.dmg/10)+4
+
+b.vx+=a.dir*knock
+b.vy+=knock*0.8
+
+comboSystem(a)
+
+}
+
+}
+
+function special(a,b){
+
+const sp=document.createElement("div")
+sp.className="special"
+
+let ax=a.x+a.dir*40
+
+sp.style.left=ax+"px"
+sp.style.bottom=(60+a.y)+"px"
+
+game.appendChild(sp)
+
+setTimeout(()=>sp.remove(),200)
+
+if(Math.abs(ax-b.x)<70 && Math.abs(a.y-b.y)<70){
+
+b.dmg+=25
+
+let knock=(b.dmg/6)+8
+
+b.vx+=a.dir*knock
+b.vy+=knock
+
+comboSystem(a)
+
+}
+
+}
+
+function comboSystem(p){
+
+let now=Date.now()
+
+if(now-p.lastHit<800){
+p.combo++
+}else{
+p.combo=1
+}
+
+p.lastHit=now
+
+if(p.combo>=2){
+document.getElementById("combo").innerText=
+p.combo+" COMBO!"
+setTimeout(()=>document.getElementById("combo").innerText="",700)
 }
 
 }
@@ -124,82 +326,98 @@ p.x+=p.vx
 p.y+=p.vy
 
 p.vy-=0.5
+p.vx*=0.9
 
 if(p.y<0){
 p.y=0
 p.vy=0
 }
 
-p.vx*=0.8
-
-if(p.x<0)p.x=0
-if(p.x>860)p.x=860
-
 }
 
 function draw(){
 
 p1.el.style.left=p1.x+"px"
-p1.el.style.bottom=(70+p1.y)+"px"
+p1.el.style.bottom=(60+p1.y)+"px"
 
 p2.el.style.left=p2.x+"px"
-p2.el.style.bottom=(70+p2.y)+"px"
+p2.el.style.bottom=(60+p2.y)+"px"
 
 }
 
 function controls(){
 
-// P1
-if(keys["a"]){p1.vx=-3;p1.dir=-1}
-if(keys["d"]){p1.vx=3;p1.dir=1}
+if(keys["a"]){p1.vx=-p1.speed;p1.dir=-1}
+if(keys["d"]){p1.vx=p1.speed;p1.dir=1}
 if(keys["w"] && p1.y===0)p1.vy=10
-if(keys["f"] && !p1.cool){
-createAttack(p1,p2)
-p1.cool=true
-setTimeout(()=>p1.cool=false,300)
-}
 
-// P2
-if(keys["ArrowLeft"]){p2.vx=-3;p2.dir=-1}
-if(keys["ArrowRight"]){p2.vx=3;p2.dir=1}
+if(keys["f"])attack(p1,p2)
+if(keys["g"])special(p1,p2)
+
+if(mode==="p2"){
+
+if(keys["ArrowLeft"]){p2.vx=-p2.speed;p2.dir=-1}
+if(keys["ArrowRight"]){p2.vx=p2.speed;p2.dir=1}
 if(keys["ArrowUp"] && p2.y===0)p2.vy=10
-if(keys["/"] && !p2.cool){
-createAttack(p2,p1)
-p2.cool=true
-setTimeout(()=>p2.cool=false,300)
+
+if(keys["/"])attack(p2,p1)
+if(keys["."])special(p2,p1)
+
+}
+
+}
+
+function ai(){
+
+if(mode!=="com")return
+
+if(p2.x<p1.x)p2.vx=2
+else p2.vx=-2
+
+if(Math.random()<0.01)p2.vy=10
+
+if(Math.abs(p1.x-p2.x)<60)attack(p2,p1)
+
+}
+
+function checkKO(){
+
+if(p1.y<-200){
+endGame("P2")
+}
+
+if(p2.y<-200){
+endGame("P1")
 }
 
 }
 
-function checkWin(){
+function endGame(winner){
 
-if(p1.hp<=0){
-gameOver=true
-document.getElementById("result").innerText="P2 WIN"
-}
+document.getElementById("result").innerText=
+winner+" の勝利"
 
-if(p2.hp<=0){
-gameOver=true
-document.getElementById("result").innerText="P1 WIN"
-}
+setTimeout(()=>{
+reset()
+document.getElementById("result").innerText=""
+},3000)
 
 }
 
 function update(){
 
-if(gameOver)return
-
 controls()
+ai()
 
 physics(p1)
 physics(p2)
 
 draw()
 
-document.getElementById("hp").innerText=
-"P1:"+p1.hp+" / P2:"+p2.hp
+checkKO()
 
-checkWin()
+document.getElementById("hp").innerText=
+"P1 "+Math.floor(p1.dmg)+"%   P2 "+Math.floor(p2.dmg)+"%"
 
 requestAnimationFrame(update)
 
