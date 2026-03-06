@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Browser Smash - Final God AI</title>
+    <title>Browser Smash - Final Edition (No Recovery Attack)</title>
     <style>
         body { margin: 0; background: #1a1a1a; color: white; font-family: sans-serif; text-align: center; overflow: hidden; }
         #menu, #result-screen {
@@ -12,131 +12,203 @@
         .config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; background: #333; padding: 20px; border-radius: 15px; margin: 10px; text-align: left; }
         select { padding: 8px; font-size: 14px; border-radius: 5px; width: 150px; }
         button { background: #ff4757; color: white; cursor: pointer; font-size: 20px; padding: 12px 40px; border: none; border-radius: 8px; margin: 10px; }
-        #game-stage { width: 1100px; height: 600px; margin: 5px auto; background: linear-gradient(to bottom, #0f2027, #203a43, #2c5364); border: 4px solid #000; position: relative; overflow: hidden; }
-        .platform { position: absolute; background: #444; border-bottom: 5px solid #222; border-radius: 4px; z-index: 1; }
-        .main-floor { background: #555; border-bottom: 10px solid #222; }
-        .player { position: absolute; width: 40px; height: 60px; z-index: 10; transition: transform 0.05s; }
-        .projectile { position: absolute; width: 16px; height: 16px; border-radius: 50%; box-shadow: 0 0 10px white; z-index: 15; }
-        .item { position: absolute; width: 25px; height: 25px; border-radius: 5px; border: 2px solid #fff; z-index: 5; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 18px; }
-        .item-warning { position: absolute; top: 10px; width: 34px; height: 34px; color: white; font-weight: bold; font-size: 22px; border-radius: 50%; display: flex; justify-content: center; align-items: center; animation: blink 0.25s infinite alternate; z-index: 20; border: 2px solid white; }
-        .item-guide-line { position: absolute; top: 0; width: 2px; height: 100%; z-index: 4; }
-        @keyframes blink { from { opacity: 1; transform: scale(1); } to { opacity: 0.6; transform: scale(1.1); } }
-        #overlay { position: absolute; top: 30%; left: 50%; transform: translate(-50%, -50%); font-size: 60px; font-weight: bold; color: #ff0; text-shadow: 3px 3px 0 #000; pointer-events: none; z-index: 100; }
+        
+        #game-container { display: none; }
+        #ui-container { margin-top: 5px; display: flex; justify-content: center; gap: 20px; }
         .status-card { background: rgba(0,0,0,0.8); padding: 8px; border-radius: 10px; border: 2px solid #444; min-width: 150px; }
-        .damage-percent { font-size: 28px; font-weight: bold; }
-        #ui-container { display: flex; justify-content: center; gap: 20px; padding: 10px; }
+        .damage-percent { font-size: 28px; font-weight: bold; margin: 2px 0; }
+        
+        #game-stage {
+            width: 1100px; height: 600px; margin: 5px auto;
+            background: linear-gradient(to bottom, #0f2027, #203a43, #2c5364);
+            border: 4px solid #000; position: relative; overflow: hidden;
+        }
+        .platform { position: absolute; background: #444; border-bottom: 5px solid #222; border-radius: 4px; z-index: 1; }
+        .player { position: absolute; width: 40px; height: 60px; z-index: 10; border-radius: 4px; transition: transform 0.05s; }
+        
+        .item { position: absolute; width: 25px; height: 25px; border-radius: 5px; border: 2px solid #fff; z-index: 5; display: flex; justify-content: center; align-items: center; font-weight: bold; }
+        .item-warning { 
+            position: absolute; top: 10px; width: 34px; height: 34px; color: white; font-weight: bold; font-size: 22px;
+            border-radius: 50%; display: flex; justify-content: center; align-items: center; animation: blink 0.25s infinite alternate; z-index: 20; border: 2px solid white;
+        }
+        .item-guide-line { position: absolute; top: 0; width: 2px; height: 100%; z-index: 4; }
+        @keyframes blink { from { opacity: 1; } to { opacity: 0.5; } }
+        
+        #overlay { position: absolute; top: 30%; left: 50%; transform: translate(-50%, -50%); font-size: 60px; font-weight: bold; color: #ff0; text-shadow: 3px 3px 0 #000; pointer-events: none; z-index: 100; }
     </style>
 </head>
 <body>
+
     <div id="menu">
         <h1 style="color: #ff4757;">BROWSER SMASH</h1>
         <div class="config-grid">
-            <strong>【P1】</strong><strong>【P2】</strong>
+            <strong>【P1】</strong><strong>【P2 (COM)】</strong>
             <select id="type1"><option value="fighter">格闘</option><option value="sword">剣</option><option value="gun">銃</option></select>
             <select id="type2"><option value="fighter">格闘</option><option value="sword">剣</option><option value="gun" selected>銃</option></select>
+            <div>COMレベル:</div>
             <select id="com-lvl"><option value="1">Lv.1</option><option value="5">Lv.5</option><option value="10" selected>Lv.10 (GOD)</option></select>
-            <select id="item-spawn"><option value="on">アイテムON</option><option value="off">アイテムOFF</option></select>
-            <select id="style1"><option value="wasd">WASD</option></select>
-            <select id="style2"><option value="arrow">ARROW</option></select>
         </div>
-        <button onclick="startGame('com')">VS GOD COM</button>
+        <button onclick="startGame()">BATTLE START</button>
+        <p style="font-size: 12px; color: #aaa;">P1: WASDで移動, Fで攻撃</p>
     </div>
 
-    <div id="game-container" style="display:none;">
+    <div id="result-screen" style="display:none;"><h1 id="winner-text"></h1><button onclick="location.reload()">TITLE</button></div>
+
+    <div id="game-container">
         <div id="ui-container">
-            <div class="status-card">P1: <span id="p1-val" class="damage-percent">0%</span> <div id="p1-sub">●●●</div></div>
-            <div class="status-card">P2: <span id="p2-val" class="damage-percent">0%</span> <div id="p2-sub">●●●</div></div>
+            <div class="status-card">P1 <div id="p1-val" class="damage-percent">0%</div><div id="p1-sub">●●●</div></div>
+            <div class="status-card">P2 <div id="p2-val" class="damage-percent">0%</div><div id="p2-sub">●●●</div></div>
         </div>
         <div id="game-stage"><div id="overlay"></div></div>
     </div>
-    <div id="result-screen" style="display:none;"><h1 id="winner-text"></h1><button onclick="location.reload()">TITLE</button></div>
 
 <script>
-// (中略: 基本定数とFighterクラス)
 const GRAVITY = 0.48, FRICTION = 0.88;
-let mode = "p2", isRunning = false, projectiles = [], items = [], keys = {}, platforms = [];
+let isRunning = false, items = [], keys = {}, platforms = [];
 
 class Fighter {
-    constructor(id, x, color, label) {
-        this.id = id; this.startX = x; this.color = color; this.label = label;
-        this.stock = 3; this.damage = 0; this.reset(true);
+    constructor(id, x, color) {
+        this.id = id; this.startX = x; this.color = color;
+        this.stock = 3; this.reset(true);
     }
     reset(full) {
-        if(full) this.stock = 3; this.damage = 0; this.x = this.startX; this.y = 350;
-        this.vx = 0; this.vy = 0; this.jumps = 0; this.isInvincible = true;
+        if(full) this.stock = 3;
+        this.damage = 0; this.x = this.startX; this.y = 350; this.vx = 0; this.vy = 0;
+        this.jumps = 0; this.isInvincible = true; this.isAtk = false;
         this.type = document.getElementById(this.id==="p1"?"type1":"type2").value;
         setTimeout(() => this.isInvincible = false, 1500);
+        if(!this.el) {
+            this.el = document.createElement("div"); this.el.id = this.id;
+            this.el.className = "player"; this.el.style.background = this.color;
+            document.getElementById("game-stage").appendChild(this.el);
+        }
     }
     update() {
         this.vy -= GRAVITY; this.x += this.vx; this.y += this.vy; this.vx *= FRICTION;
-        platforms.forEach(p => { if (this.vy <= 0 && this.x + 25 > p.x && this.x + 5 < p.x + p.w && this.y >= p.y && this.y <= p.y + 10) { this.y = p.y; this.vy = 0; this.jumps = 0; } });
-        if (this.x < -300 || this.x > 1400 || this.y < -300) this.out();
-        const el = document.getElementById(this.id);
-        if(el) { el.style.left = this.x + "px"; el.style.bottom = this.y + "px"; el.style.opacity = this.isInvincible ? 0.5 : 1; }
+        platforms.forEach(p => {
+            if (this.vy <= 0 && this.x + 35 > p.x && this.x + 5 < p.x + p.w && this.y >= p.y && this.y <= p.y + 10) {
+                this.y = p.y; this.vy = 0; this.jumps = 0;
+            }
+        });
+        if (this.x < -250 || this.x > 1350 || this.y < -300) this.out();
+        this.el.style.left = this.x + "px"; this.el.style.bottom = this.y + "px";
+        this.el.style.opacity = this.isInvincible ? 0.4 : 1;
         document.getElementById(this.id+"-val").innerText = Math.floor(this.damage) + "%";
         document.getElementById(this.id+"-sub").innerText = "●".repeat(this.stock);
     }
-    out() { this.stock--; if(this.stock <= 0) endGame(this.id==="p1"?"P2":"P1"); else { this.reset(false); } }
+    out() {
+        this.stock--;
+        if(this.stock <= 0) endGame(this.id==="p1"?"P2":"P1");
+        else { showEffect("K.O."); this.reset(false); }
+    }
     attack(target) {
         if(this.isAtk) return; this.isAtk = true;
-        if(Math.abs(this.x - target.x) < 100 && Math.abs(this.y - target.y) < 50) {
-            target.damage += 10; target.vx = (target.x < this.x ? -1 : 1) * (target.damage/5 + 10); target.vy = 8;
+        const range = this.type === "gun" ? 400 : 80;
+        if(Math.abs(this.x - target.x) < range && Math.abs(this.y - target.y) < 60) {
+            if(!target.isInvincible) {
+                target.damage += 10;
+                target.vx = (target.x < this.x ? -1 : 1) * (target.damage/6 + 8);
+                target.vy = 8;
+            }
         }
         setTimeout(()=>this.isAtk=false, 400);
     }
 }
 
-let p1 = new Fighter("p1", 300, "blue", "1P"), p2 = new Fighter("p2", 750, "red", "2P");
+let p1 = new Fighter("p1", 300, "#3498db"), p2 = new Fighter("p2", 750, "#e74c3c");
 
-function startGame(m) {
-    mode = m; setupStage();
+function startGame() {
+    setupStage();
     document.getElementById("menu").style.display = "none";
     document.getElementById("game-container").style.display = "block";
-    const stage = document.getElementById("game-stage");
-    [p1, p2].forEach(p => {
-        const div = document.createElement("div"); div.id = p.id; div.className = "player";
-        div.style.background = p.color; div.style.width="40px"; div.style.height="60px";
-        stage.appendChild(div); p.reset(true);
-    });
+    p1.reset(true); p2.reset(true);
     isRunning = true; loop();
 }
 
-function setupStage() { platforms = [{x: 200, y: 120, w: 700}]; const stage = document.getElementById("game-stage"); const d = document.createElement("div"); d.className="platform main-floor"; d.style.left="200px"; d.style.bottom="120px"; d.style.width="700px"; d.style.height="20px"; stage.appendChild(d); }
-function endGame(win) { isRunning = false; document.getElementById("result-screen").style.display="flex"; document.getElementById("winner-text").innerText=win+" WINS"; }
+function setupStage() {
+    platforms = [{x: 200, y: 120, w: 700}];
+    const stage = document.getElementById("game-stage");
+    const floor = document.createElement("div");
+    floor.className = "platform"; floor.style.left="200px"; floor.style.bottom="120px"; floor.style.width="700px"; floor.style.height="20px";
+    stage.appendChild(floor);
+}
+
+function endGame(win) { isRunning = false; document.getElementById("result-screen").style.display = "flex"; document.getElementById("winner-text").innerText = win + " WINS!"; }
 
 function loop() {
     if(!isRunning) return;
-    
+
     // P1 操作
     if(keys["KeyA"]) p1.vx -= 0.8; if(keys["KeyD"]) p1.vx += 0.8;
-    if(keys["KeyW"] && p1.jumps < 2) { p1.vy = 12; p1.jumps++; delete keys["KeyW"]; }
+    if(keys["KeyW"] && p1.jumps < 2) { p1.vy = 12.5; p1.jumps++; delete keys["KeyW"]; }
     if(keys["KeyF"]) p1.attack(p2);
 
-    // 改良版 COM Lv.10 ロジック
-    if(mode === "com") {
-        const lvl = 10;
-        const leftLimit = 220, rightLimit = 880;
-        const isOutside = (p2.x < leftLimit || p2.x > rightLimit);
+    // COM Lv.10 ロジック (復帰攻撃なし)
+    const lvl = parseInt(document.getElementById("com-lvl").value);
+    const leftLimit = 220, rightLimit = 880;
+    const isOutside = (p2.x < leftLimit || p2.x > rightLimit);
 
-        if (isOutside) {
-            // 復帰：ステージ中央へ向かって入力を固定
-            p2.vx += (p2.x < 550 ? 0.85 : -0.85);
-            // 崖下からのジャンプ復帰のみ許可（最大2回）
-            if (p2.y < 115 && p2.vy < 0 && p2.jumps < 2) {
-                p2.vy = 12.5; p2.jumps++;
-            }
-        } else {
-            // 通常戦闘：ジャンプは回避時のみ
-            if (Math.abs(p1.x - p2.x) < 150 && p1.isAtk && p2.jumps < 2) { p2.vy = 11; p2.jumps++; }
-            // プレイヤーを追跡
-            p2.vx += (p2.x < p1.x ? 0.6 : -0.6);
-            if (Math.abs(p1.x - p2.x) < 80) p2.attack(p1);
+    if (isOutside) {
+        // ステージ中央へ一直線に戻る
+        p2.vx += (p2.x < 550 ? 0.85 : -0.85);
+        if (p2.y < 115 && p2.vy < 0 && p2.jumps < 2) {
+            p2.vy = 12.5; p2.jumps++;
         }
+    } else {
+        // 通常戦闘
+        if (lvl === 10 && Math.abs(p1.x - p2.x) < 150 && p1.isAtk && p2.jumps < 2) { p2.vy = 12; p2.jumps++; } 
+        p2.vx += (p2.x < (p1.x + (p2.type==="gun"?250:30)) ? 0.6 : -0.6);
+        if (Math.abs(p1.x - p2.x) < (p2.type==="gun"?300:100) && Math.random() < 0.05) p2.attack(p1);
     }
 
     p1.update(); p2.update();
+
+    // アイテムシステム
+    if(Math.random() < 0.006) {
+        const isBomb = Math.random() < 0.66; // 2:1 ratio
+        createItem(isBomb ? "bomb" : "heal");
+    }
+    updateItems();
+
     requestAnimationFrame(loop);
 }
+
+function createItem(type) {
+    const spawnX = 250 + Math.random()*600;
+    const it = { x: spawnX, y: 700, vy: 0, type, el: document.createElement("div"), warn: document.createElement("div"), guide: document.createElement("div") };
+    it.el.className = "item";
+    it.el.style.background = (type==="bomb" ? "#ff4757" : "#2ecc71");
+    it.el.innerText = (type==="bomb" ? "!" : "+");
+    it.warn.className = "item-warning";
+    it.warn.style.left = (spawnX - 4) + "px";
+    it.warn.style.background = it.el.style.background;
+    it.warn.innerText = (type==="bomb" ? "⚠" : "♥");
+    it.guide.className = "item-guide-line";
+    it.guide.style.left = (spawnX + 12) + "px";
+    it.guide.style.background = (type==="bomb" ? "rgba(255,71,87,0.2)" : "rgba(46,204,113,0.2)");
+    document.getElementById("game-stage").append(it.el, it.warn, it.guide);
+    items.push(it);
+}
+
+function updateItems() {
+    items.forEach((it, i) => {
+        it.vy -= 0.05; it.y += it.vy; // 低速落下
+        it.el.style.left = it.x+"px"; it.el.style.bottom = it.y+"px";
+        if(it.y < 580 && it.warn) { it.warn.remove(); it.guide.remove(); it.warn = null; }
+        
+        [p1, p2].forEach(p => {
+            if(Math.abs(p.x-it.x)<40 && Math.abs(p.y-it.y)<50) {
+                if(it.type === "heal") { p.damage = Math.max(0, p.damage - 30); }
+                else { p.damage += 30; p.vx = (p.x < it.x ? -20 : 20); p.vy = 12; }
+                it.el.remove(); items.splice(i, 1);
+            }
+        });
+        if(it.y < -50) { it.el.remove(); items.splice(i, 1); }
+    });
+}
+
+function showEffect(t) { const o = document.getElementById("overlay"); o.innerText = t; setTimeout(()=>o.innerText="", 1000); }
+
 window.addEventListener("keydown", e => keys[e.code] = true);
 window.addEventListener("keyup", e => delete keys[e.code]);
 </script>
