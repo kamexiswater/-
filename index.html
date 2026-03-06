@@ -2,48 +2,66 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>Mini Smash</title>
+<title>Mini Smash Battle</title>
 <style>
+
 body{
-  margin:0;
-  background:#222;
-  overflow:hidden;
-  font-family:sans-serif;
+margin:0;
+background:#1b1b1b;
+font-family:sans-serif;
+color:white;
+text-align:center;
 }
+
 #game{
-  position:relative;
-  width:900px;
-  height:500px;
-  margin:20px auto;
-  background:linear-gradient(#87ceeb,#e0f7ff);
-  border:4px solid black;
+width:900px;
+height:500px;
+margin:auto;
+position:relative;
+background:linear-gradient(#87ceeb,#e6faff);
+border:4px solid black;
+overflow:hidden;
 }
+
 .platform{
-  position:absolute;
-  bottom:50px;
-  width:100%;
-  height:20px;
-  background:#444;
+position:absolute;
+bottom:50px;
+width:100%;
+height:20px;
+background:#333;
 }
+
 .player{
-  position:absolute;
-  width:40px;
-  height:60px;
+width:40px;
+height:60px;
+position:absolute;
 }
+
 #p1{background:red;}
 #p2{background:blue;}
-.ui{
-  color:white;
-  text-align:center;
+
+.attack{
+position:absolute;
+width:40px;
+height:20px;
+background:yellow;
+opacity:0.8;
 }
+
+#result{
+font-size:40px;
+margin-top:10px;
+}
+
 </style>
 </head>
 <body>
 
-<div class="ui">
-<h2>Mini Smash (矢印キー + / A,D,W,F)</h2>
-<div id="hp"></div>
-</div>
+<h2>Mini Smash</h2>
+<p>P1: A D 移動 / W ジャンプ / F 攻撃　
+P2: ← → 移動 / ↑ ジャンプ / / 攻撃</p>
+
+<div>HP → <span id="hp"></span></div>
 
 <div id="game">
 <div class="platform"></div>
@@ -51,83 +69,144 @@ body{
 <div id="p2" class="player"></div>
 </div>
 
+<div id="result"></div>
+
 <script>
+
 const game=document.getElementById("game")
 
 const p1={
-  el:document.getElementById("p1"),
-  x:100,y:0,vx:0,vy:0,
-  hp:100
+el:document.getElementById("p1"),
+x:100,y:0,vx:0,vy:0,
+hp:100,
+dir:1
 }
 
 const p2={
-  el:document.getElementById("p2"),
-  x:700,y:0,vx:0,vy:0,
-  hp:100
+el:document.getElementById("p2"),
+x:700,y:0,vx:0,vy:0,
+hp:100,
+dir:-1
 }
 
+let gameOver=false
 const keys={}
 
 document.addEventListener("keydown",e=>keys[e.key]=true)
 document.addEventListener("keyup",e=>keys[e.key]=false)
 
-function attack(attacker,defender){
-  const dist=Math.abs(attacker.x-defender.x)
-  if(dist<60 && Math.abs(attacker.y-defender.y)<60){
-    defender.hp-=10
-    defender.vx+= (defender.x>attacker.x?5:-5)
-  }
+function createAttack(player,target){
+
+const atk=document.createElement("div")
+atk.className="attack"
+
+const ax=player.x+(player.dir*40)
+
+atk.style.left=ax+"px"
+atk.style.bottom=(70+player.y)+"px"
+
+game.appendChild(atk)
+
+setTimeout(()=>atk.remove(),150)
+
+const dist=Math.abs(ax-target.x)
+
+if(dist<50 && Math.abs(player.y-target.y)<60){
+target.hp-=10
+target.vx+=player.dir*6
 }
 
-function update(){
-  // p1 controls
-  if(keys["a"]) p1.vx=-3
-  if(keys["d"]) p1.vx=3
-  if(keys["w"] && p1.y===0) p1.vy=10
-  if(keys["f"]) attack(p1,p2)
-
-  // p2 controls
-  if(keys["ArrowLeft"]) p2.vx=-3
-  if(keys["ArrowRight"]) p2.vx=3
-  if(keys["ArrowUp"] && p2.y===0) p2.vy=10
-  if(keys["/"]) attack(p2,p1)
-
-  physics(p1)
-  physics(p2)
-
-  draw()
-
-  document.getElementById("hp").innerText=
-  "P1 HP:"+p1.hp+"   P2 HP:"+p2.hp
-
-  requestAnimationFrame(update)
 }
 
 function physics(p){
-  p.x+=p.vx
-  p.y+=p.vy
-  p.vy-=0.5
 
-  if(p.y<0){
-    p.y=0
-    p.vy=0
-  }
+p.x+=p.vx
+p.y+=p.vy
 
-  p.vx*=0.8
+p.vy-=0.5
 
-  if(p.x<0)p.x=0
-  if(p.x>860)p.x=860
+if(p.y<0){
+p.y=0
+p.vy=0
+}
+
+p.vx*=0.8
+
+if(p.x<0)p.x=0
+if(p.x>860)p.x=860
+
 }
 
 function draw(){
-  p1.el.style.left=p1.x+"px"
-  p1.el.style.bottom=(70+p1.y)+"px"
 
-  p2.el.style.left=p2.x+"px"
-  p2.el.style.bottom=(70+p2.y)+"px"
+p1.el.style.left=p1.x+"px"
+p1.el.style.bottom=(70+p1.y)+"px"
+
+p2.el.style.left=p2.x+"px"
+p2.el.style.bottom=(70+p2.y)+"px"
+
+}
+
+function controls(){
+
+// P1
+if(keys["a"]){p1.vx=-3;p1.dir=-1}
+if(keys["d"]){p1.vx=3;p1.dir=1}
+if(keys["w"] && p1.y===0)p1.vy=10
+if(keys["f"] && !p1.cool){
+createAttack(p1,p2)
+p1.cool=true
+setTimeout(()=>p1.cool=false,300)
+}
+
+// P2
+if(keys["ArrowLeft"]){p2.vx=-3;p2.dir=-1}
+if(keys["ArrowRight"]){p2.vx=3;p2.dir=1}
+if(keys["ArrowUp"] && p2.y===0)p2.vy=10
+if(keys["/"] && !p2.cool){
+createAttack(p2,p1)
+p2.cool=true
+setTimeout(()=>p2.cool=false,300)
+}
+
+}
+
+function checkWin(){
+
+if(p1.hp<=0){
+gameOver=true
+document.getElementById("result").innerText="P2 WIN"
+}
+
+if(p2.hp<=0){
+gameOver=true
+document.getElementById("result").innerText="P1 WIN"
+}
+
+}
+
+function update(){
+
+if(gameOver)return
+
+controls()
+
+physics(p1)
+physics(p2)
+
+draw()
+
+document.getElementById("hp").innerText=
+"P1:"+p1.hp+" / P2:"+p2.hp
+
+checkWin()
+
+requestAnimationFrame(update)
+
 }
 
 update()
+
 </script>
 
 </body>
