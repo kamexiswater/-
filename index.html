@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Browser Smash - Slow Items</title>
+    <title>Browser Smash - True God AI</title>
     <style>
         body { margin: 0; background: #1a1a1a; color: white; font-family: sans-serif; text-align: center; overflow: hidden; }
         #menu, #result-screen {
@@ -12,14 +12,12 @@
         .config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; background: #333; padding: 20px; border-radius: 15px; margin: 10px; text-align: left; }
         select { padding: 8px; font-size: 14px; border-radius: 5px; width: 150px; }
         button { background: #ff4757; color: white; cursor: pointer; font-size: 20px; padding: 12px 40px; border: none; border-radius: 8px; margin: 10px; }
-        
         #controls-guide { margin-top: 15px; padding: 10px; background: rgba(0,0,0,0.5); border-radius: 10px; font-size: 13px; color: #ccc; }
         #game-container { display: none; }
         #ui-container { margin-top: 5px; display: flex; justify-content: center; gap: 20px; }
         .status-card { background: rgba(0,0,0,0.8); padding: 8px; border-radius: 10px; border: 2px solid #444; min-width: 150px; }
         .damage-percent { font-size: 28px; font-weight: bold; margin: 2px 0; }
         .sp-gauge, .ammo-gauge { font-size: 10px; color: #ff0; margin-top: 2px; }
-        
         #game-stage {
             width: 1100px; height: 600px; margin: 5px auto;
             background: linear-gradient(to bottom, #0f2027, #203a43, #2c5364);
@@ -34,21 +32,14 @@
             border-radius: 2px; transition: transform 0.1s;
         }
         .projectile { position: absolute; width: 16px; height: 16px; border-radius: 50%; box-shadow: 0 0 10px white; z-index: 15; }
-        
         .item { position: absolute; width: 25px; height: 25px; border-radius: 5px; border: 2px solid #fff; z-index: 5; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 18px; }
-        .item-warning { 
-            position: absolute; top: 10px; width: 34px; height: 34px; 
-            color: white; font-weight: bold; font-size: 22px;
-            border-radius: 50%; display: flex; justify-content: center; align-items: center;
-            animation: blink 0.25s infinite alternate; z-index: 20; border: 2px solid white;
-        }
+        .item-warning { position: absolute; top: 10px; width: 34px; height: 34px; color: white; font-weight: bold; font-size: 22px; border-radius: 50%; display: flex; justify-content: center; align-items: center; animation: blink 0.25s infinite alternate; z-index: 20; border: 2px solid white; }
         .item-guide-line { position: absolute; top: 0; width: 2px; height: 100%; z-index: 4; }
         @keyframes blink { from { opacity: 1; transform: scale(1); } to { opacity: 0.6; transform: scale(1.1); } }
         #overlay { position: absolute; top: 30%; left: 50%; transform: translate(-50%, -50%); font-size: 60px; font-weight: bold; color: #ff0; text-shadow: 3px 3px 0 #000; pointer-events: none; z-index: 100; }
     </style>
 </head>
 <body>
-
     <div id="menu">
         <h1 style="color: #ff4757;">BROWSER SMASH</h1>
         <div class="config-grid">
@@ -60,7 +51,7 @@
             <strong>【設定】</strong><strong>【COMレベル】</strong>
             <div>アイテム出現: <select id="item-spawn"><option value="on">ON</option><option value="off">OFF</option></select></div>
             <select id="com-lvl">
-                <option value="1">Lv.1</option><option value="3">Lv.3</option><option value="5">Lv.5</option><option value="8">Lv.8</option><option value="10">Lv.10 (GOD)</option>
+                <option value="1">Lv.1</option><option value="5">Lv.5</option><option value="8">Lv.8</option><option value="10" selected>Lv.10 (GOD)</option>
             </select>
             <strong>【ステージ】</strong>
             <div><select id="stage-select"><option value="random">ランダム</option><option value="final">終点</option><option value="small">小戦場</option><option value="battle" selected>戦場</option></select></div>
@@ -68,9 +59,7 @@
         <div id="controls-guide"></div>
         <div style="margin-top:10px;"><button onclick="startGame('com')">VS COM</button><button onclick="startGame('p2')">VS 2P</button></div>
     </div>
-
     <div id="result-screen" style="display:none;"><h1 id="winner-text"></h1><button onclick="location.reload()">タイトルへ</button></div>
-
     <div id="game-container">
         <div id="ui-container">
             <div class="status-card">P1 <div id="p1-val" class="damage-percent">0%</div><div id="p1-sub">●●●</div><div id="p1-sp" class="sp-gauge">SP: READY</div><div id="p1-ammo" class="ammo-gauge"></div></div>
@@ -187,16 +176,41 @@ function loop() {
     if(!isRunning) return;
     if(keys[p1.controls.left]) { p1.vx -= 0.85; p1.dir = -1; } if(keys[p1.controls.right]) { p1.vx += 0.85; p1.dir = 1; }
     
+    // 改良版 COMロジック (Lv.10対応)
     if(mode==="com") {
         const lvl = parseInt(document.getElementById("com-lvl").value);
         let dist = Math.abs(p1.x - p2.x);
-        if(lvl >= 8 && projectiles.some(p => p.owner === p1 && Math.abs(p.x - p2.x) < 100)) { if(p2.jumps < 2) { p2.vy = 12; p2.jumps++; } }
-        let targetX = p1.x + (p2.type === "gun" ? (p1.x > p2.x ? -300 : 300) : (p1.x > p2.x ? -30 : 30));
-        p2.vx += (p2.x < targetX ? 0.3 + lvl*0.1 : -0.3 - lvl*0.1);
-        if(lvl >= 5 && items.length > 0) { let it = items[0]; p2.vx += (p2.x < it.x ? 0.5 : -0.5); }
-        if(dist < (p2.type==="gun"?500:120) && Math.random() < (0.01 * lvl)) p2.attack(p1);
+        let onStage = (p2.x > 150 && p2.x < 950);
+
+        // 1. 自滅防止 & ステージ復帰 (最強ロジック)
+        if (!onStage) {
+            // ステージ内側へ移動
+            p2.vx += (p2.x < 550 ? 0.7 : -0.7);
+            // 落下しそうならジャンプ（耐久ではなく復帰のため）
+            if (p2.y < 200 && p2.jumps < 2) { p2.vy = 12.5; p2.jumps++; }
+        } else {
+            // 2. 崖際耐久防止 (中央付近なら通常戦闘)
+            if (lvl >= 8 && projectiles.some(p => p.owner === p1 && Math.abs(p.x - p2.x) < 120)) {
+                if(p2.jumps < 2) { p2.vy = 11; p2.jumps++; }
+            }
+            // 戦闘距離の管理
+            let safeDist = p2.type === "gun" ? 300 : 40;
+            if (p2.isReloading) safeDist = 450; // リロード中は逃げる
+            let targetX = p1.x + (p1.x > p2.x ? -safeDist : safeDist);
+            p2.vx += (p2.x < targetX ? 0.35 + lvl*0.12 : -0.35 - lvl*0.12);
+        }
+
+        // アイテムへの執着
+        if(lvl >= 5 && items.length > 0 && onStage) { 
+            let it = items[0]; p2.vx += (p2.x < it.x ? 0.6 : -0.6); 
+        }
+
+        // 攻撃
+        if(dist < (p2.type==="gun"?550:120) && Math.random() < (0.015 * lvl)) p2.attack(p1);
         if(lvl >= 5 && p2.spReady && dist < 400 && Math.random() < 0.1) p2.useSP(p1);
-        if(p2.y < 120 || (lvl === 10 && Math.random() < 0.05)) { p2.vy = 12.5; p2.jumps++; }
+        
+        // 通常のジャンプ（崖際以外）
+        if(onStage && p2.y < 120 && Math.random() < 0.05) { p2.vy = 12.5; p2.jumps++; }
     } else {
         if(keys[p2.controls.left]) { p2.vx -= 0.85; p2.dir = -1; } if(keys[p2.controls.right]) { p2.vx += 0.85; p2.dir = 1; }
     }
@@ -210,7 +224,6 @@ function loop() {
         else if(p.x < -400 || p.x > 1500 || Math.abs(p.x - p.startX) > p.maxRange) { p.el.remove(); projectiles.splice(i, 1); }
     });
 
-    // アイテムシステム (落下スピードを大幅に低減)
     if(document.getElementById("item-spawn").value === "on" && Math.random() < 0.005) {
         const isBomb = Math.random() < 0.66;
         const type = isBomb ? "bomb" : "heal";
@@ -218,22 +231,14 @@ function loop() {
         const it = { x: spawnX, y: 750, vy: 0, type, el: document.createElement("div"), warnEl: document.createElement("div"), guideEl: document.createElement("div") };
         it.el.className = "item";
         if(isBomb) { it.el.style.background = "#ff4757"; it.el.innerText = "!"; } else { it.el.style.background = "#2ecc71"; it.el.innerText = "+"; }
-        it.warnEl.className = "item-warning"; 
-        it.warnEl.innerText = isBomb ? "⚠" : "♥";
-        it.warnEl.style.left = (spawnX - 4) + "px";
-        it.warnEl.style.background = isBomb ? "#ff4757" : "#2ecc71";
-        it.guideEl.className = "item-guide-line"; 
-        it.guideEl.style.left = (spawnX + 12) + "px";
-        it.guideEl.style.background = isBomb ? "rgba(255, 71, 87, 0.2)" : "rgba(46, 204, 113, 0.2)";
+        it.warnEl.className = "item-warning"; it.warnEl.innerText = isBomb ? "⚠" : "♥"; it.warnEl.style.left = (spawnX - 4) + "px"; it.warnEl.style.background = isBomb ? "#ff4757" : "#2ecc71";
+        it.guideEl.className = "item-guide-line"; it.guideEl.style.left = (spawnX + 12) + "px"; it.guideEl.style.background = isBomb ? "rgba(255, 71, 87, 0.2)" : "rgba(46, 204, 113, 0.2)";
         document.getElementById("game-stage").append(it.el, it.warnEl, it.guideEl);
         items.push(it);
     }
 
     items.forEach((it, i) => {
-        // 重力を 0.15 から 0.05 へ変更して低速化
-        it.vy -= 0.05; 
-        it.y += it.vy; 
-        it.el.style.left = it.x+"px"; it.el.style.bottom = it.y+"px";
+        it.vy -= 0.05; it.y += it.vy; it.el.style.left = it.x+"px"; it.el.style.bottom = it.y+"px";
         if(it.y < 580) { if(it.warnEl) { it.warnEl.remove(); it.warnEl = null; } if(it.guideEl) { it.guideEl.remove(); it.guideEl = null; } }
         [p1, p2].forEach(p => {
             if(Math.abs(p.x-it.x)<40 && Math.abs(p.y-it.y)<50) {
