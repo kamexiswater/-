@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Browser Smash - Narrow Burst Zone</title>
+    <title>Browser Smash - Extended Recovery</title>
     <style>
         body { margin: 0; background: #1a1a1a; color: white; font-family: sans-serif; text-align: center; overflow: hidden; }
         #menu, #result-screen {
@@ -46,7 +46,12 @@
             <select id="com-lvl">
                 <option value="1">Lv.1</option><option value="2">Lv.2</option><option value="3">Lv.3</option><option value="4">Lv.4</option><option value="5" selected>Lv.5</option>
             </select>
-            <span>ステージ: <select id="stage-select"><option value="final">終点</option><option value="small">小戦場</option><option value="battle" selected>戦場</option></select></span>
+            <span>ステージ: <select id="stage-select">
+                <option value="random">★ランダム★</option>
+                <option value="final">終点</option>
+                <option value="small">小戦場</option>
+                <option value="battle">戦場</option>
+            </select></span>
         </div>
         <button onclick="startGame('com')">VS COM</button>
         <button onclick="startGame('p2')">VS 2P</button>
@@ -78,11 +83,12 @@ class Fighter {
         this.stock = 3; this.spReady = true; this.damage = 0;
     }
     reset(full) {
-        if(full) { this.stock = 3; this.damage = 0; }
+        if(full) this.stock = 3;
+        this.damage = 0; // ストックを失ったとき、または開始時に0%に
         this.x = this.startX; this.y = 350; this.oldY = 350; this.vx = 0; this.vy = 0;
         this.dir = (this.x < 550) ? 1 : -1; this.jumps = 0; this.isAtk = false;
         this.controls = getControls(this.id);
-        this.isInvincible = true; setTimeout(() => this.isInvincible = false, 1200);
+        this.isInvincible = true; setTimeout(() => this.isInvincible = false, 1500);
         this.type = document.getElementById(this.id==="p1"?"type1":"type2").value;
         const stats = { fighter: [14, 0, 0, 450], sword: [11, 7, 14, 380], gun: [4, 5, 20, 160] };
         [this.meleeP, this.projP, this.projS, this.cd] = stats[this.type];
@@ -101,9 +107,8 @@ class Fighter {
             }
         });
 
-        // 判定範囲を広げ、吹っ飛びにくく修正
-        // x: -250〜1350, y: -250〜950 まで耐えられるように
-        if (this.x < -250 || this.x > 1350 || this.y < -250 || this.y > 950) this.out();
+        // 判定範囲をさらに緩和 (より外側まで耐えられる)
+        if (this.x < -350 || this.x > 1450 || this.y < -350 || this.y > 1100) this.out();
 
         this.el.style.left = this.x + "px"; this.el.style.bottom = this.y + "px";
         this.el.style.transform = `scaleX(${this.dir})`;
@@ -118,8 +123,8 @@ class Fighter {
         if(this.isAtk) return; this.isAtk = true;
         if(this.type !== "fighter") this.fireProjectile(this.projP, this.projS);
         else {
-            const range = 80;
-            if(Math.abs((this.x+(this.dir*25))-target.x)<range && Math.abs(this.y-target.y)<60) this.hit(target, this.meleeP, 1.7);
+            const range = 85;
+            if(Math.abs((this.x+(this.dir*25))-target.x)<range && Math.abs(this.y-target.y)<65) this.hit(target, this.meleeP, 1.7);
         }
         setTimeout(()=>this.isAtk=false, this.cd);
     }
@@ -145,7 +150,11 @@ class Fighter {
 let p1 = new Fighter("p1", 350, "#3498db", "1P"), p2 = new Fighter("p2", 710, "#e74c3c", "2P");
 
 function setupStage() {
-    const stage = document.getElementById("stage-select").value;
+    let stage = document.getElementById("stage-select").value;
+    if(stage === "random") {
+        const stages = ["final", "small", "battle"];
+        stage = stages[Math.floor(Math.random() * stages.length)];
+    }
     const stageEl = document.getElementById("game-stage");
     platforms = [{x: 200, y: 120, w: 700}];
     if(stage === "small") platforms.push({x: 300, y: 280, w: 150}, {x: 650, y: 280, w: 150});
@@ -202,7 +211,7 @@ function loop() {
         if(Math.abs(p.x-target.x)<35 && Math.abs(p.y-(target.y+30))<40) {
             if(!target.isInvincible) p.owner.hit(target, p.pwr, 1.0);
             p.el.remove(); projectiles.splice(i, 1);
-        } else if(p.x < -300 || p.x > 1400) { p.el.remove(); projectiles.splice(i, 1); }
+        } else if(p.x < -400 || p.x > 1500) { p.el.remove(); projectiles.splice(i, 1); }
     });
 
     requestAnimationFrame(loop);
