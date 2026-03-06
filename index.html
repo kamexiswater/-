@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Browser Smash - Nightmare Edition</title>
+    <title>Browser Smash - Slow Items</title>
     <style>
         body { margin: 0; background: #1a1a1a; color: white; font-family: sans-serif; text-align: center; overflow: hidden; }
         #menu, #result-screen {
@@ -35,7 +35,6 @@
         }
         .projectile { position: absolute; width: 16px; height: 16px; border-radius: 50%; box-shadow: 0 0 10px white; z-index: 15; }
         
-        /* アイテムデザイン */
         .item { position: absolute; width: 25px; height: 25px; border-radius: 5px; border: 2px solid #fff; z-index: 5; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 18px; }
         .item-warning { 
             position: absolute; top: 10px; width: 34px; height: 34px; 
@@ -188,18 +187,13 @@ function loop() {
     if(!isRunning) return;
     if(keys[p1.controls.left]) { p1.vx -= 0.85; p1.dir = -1; } if(keys[p1.controls.right]) { p1.vx += 0.85; p1.dir = 1; }
     
-    // COMロジック (Lv.10対応)
     if(mode==="com") {
         const lvl = parseInt(document.getElementById("com-lvl").value);
         let dist = Math.abs(p1.x - p2.x);
-        // 超反応回避
         if(lvl >= 8 && projectiles.some(p => p.owner === p1 && Math.abs(p.x - p2.x) < 100)) { if(p2.jumps < 2) { p2.vy = 12; p2.jumps++; } }
-        // 最適距離維持
         let targetX = p1.x + (p2.type === "gun" ? (p1.x > p2.x ? -300 : 300) : (p1.x > p2.x ? -30 : 30));
         p2.vx += (p2.x < targetX ? 0.3 + lvl*0.1 : -0.3 - lvl*0.1);
-        // アイテムへの執着
         if(lvl >= 5 && items.length > 0) { let it = items[0]; p2.vx += (p2.x < it.x ? 0.5 : -0.5); }
-        // 攻撃
         if(dist < (p2.type==="gun"?500:120) && Math.random() < (0.01 * lvl)) p2.attack(p1);
         if(lvl >= 5 && p2.spReady && dist < 400 && Math.random() < 0.1) p2.useSP(p1);
         if(p2.y < 120 || (lvl === 10 && Math.random() < 0.05)) { p2.vy = 12.5; p2.jumps++; }
@@ -216,31 +210,30 @@ function loop() {
         else if(p.x < -400 || p.x > 1500 || Math.abs(p.x - p.startX) > p.maxRange) { p.el.remove(); projectiles.splice(i, 1); }
     });
 
-    // アイテムシステム (比率 爆弾:回復 = 2:1)
+    // アイテムシステム (落下スピードを大幅に低減)
     if(document.getElementById("item-spawn").value === "on" && Math.random() < 0.005) {
-        const isBomb = Math.random() < 0.66; // 2/3の確率で爆弾
+        const isBomb = Math.random() < 0.66;
         const type = isBomb ? "bomb" : "heal";
         const spawnX = 100 + Math.random()*900;
         const it = { x: spawnX, y: 750, vy: 0, type, el: document.createElement("div"), warnEl: document.createElement("div"), guideEl: document.createElement("div") };
-        
         it.el.className = "item";
         if(isBomb) { it.el.style.background = "#ff4757"; it.el.innerText = "!"; } else { it.el.style.background = "#2ecc71"; it.el.innerText = "+"; }
-        
         it.warnEl.className = "item-warning"; 
         it.warnEl.innerText = isBomb ? "⚠" : "♥";
         it.warnEl.style.left = (spawnX - 4) + "px";
         it.warnEl.style.background = isBomb ? "#ff4757" : "#2ecc71";
-
         it.guideEl.className = "item-guide-line"; 
         it.guideEl.style.left = (spawnX + 12) + "px";
         it.guideEl.style.background = isBomb ? "rgba(255, 71, 87, 0.2)" : "rgba(46, 204, 113, 0.2)";
-
         document.getElementById("game-stage").append(it.el, it.warnEl, it.guideEl);
         items.push(it);
     }
 
     items.forEach((it, i) => {
-        it.vy -= 0.15; it.y += it.vy; it.el.style.left = it.x+"px"; it.el.style.bottom = it.y+"px";
+        // 重力を 0.15 から 0.05 へ変更して低速化
+        it.vy -= 0.05; 
+        it.y += it.vy; 
+        it.el.style.left = it.x+"px"; it.el.style.bottom = it.y+"px";
         if(it.y < 580) { if(it.warnEl) { it.warnEl.remove(); it.warnEl = null; } if(it.guideEl) { it.guideEl.remove(); it.guideEl = null; } }
         [p1, p2].forEach(p => {
             if(Math.abs(p.x-it.x)<40 && Math.abs(p.y-it.y)<50) {
