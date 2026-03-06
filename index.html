@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Browser Smash - True God AI (No Fly Fix)</title>
+    <title>Browser Smash - High Speed AI Edition</title>
     <style>
         body { margin: 0; background: #1a1a1a; color: white; font-family: sans-serif; text-align: center; overflow: hidden; }
         #menu, #result-screen {
@@ -68,7 +68,8 @@
     </div>
 
 <script>
-const GRAVITY = 0.52, FRICTION = 0.88;
+// SPEED & PHYSICS TUNING
+const GRAVITY = 0.58, FRICTION = 0.90, MOVE_ACCEL = 1.1;
 let mode = "p2", isRunning = false, projectiles = [], items = [], keys = {}, platforms = [];
 
 function updateGuide() {
@@ -98,7 +99,7 @@ class Fighter {
         this.controls = getControls(this.id);
         this.isInvincible = true; setTimeout(() => this.isInvincible = false, 1500);
         this.type = document.getElementById(this.id==="p1"?"type1":"type2").value;
-        const stats = { fighter: [14, 0, 0, 450], sword: [12, 7, 14, 350], gun: [8, 8, 20, 160] };
+        const stats = { fighter: [15, 0, 0, 400], sword: [13, 8, 15, 300], gun: [9, 9, 22, 140] };
         [this.meleeP, this.projP, this.projS, this.cd] = stats[this.type];
         if(!this.el) { this.el = document.createElement("div"); this.el.id = this.id; document.getElementById("game-stage").appendChild(this.el); }
         this.el.className = `player type-${this.type}`;
@@ -109,7 +110,7 @@ class Fighter {
     }
     jump() {
         if(this.jumps < 2) {
-            this.vy = 12.5;
+            this.vy = 13.5;
             this.jumps++;
         }
     }
@@ -120,14 +121,10 @@ class Fighter {
         this.y += this.vy; 
         this.vx *= FRICTION;
 
-        let onGround = false;
         platforms.forEach(p => {
             if (this.vy <= 0 && (this.x + 25 > p.x && this.x + 5 < p.x + p.w)) {
                 if (this.oldY >= p.y && this.y <= p.y) { 
-                    this.y = p.y; 
-                    this.vy = 0; 
-                    this.jumps = 0; 
-                    onGround = true;
+                    this.y = p.y; this.vy = 0; this.jumps = 0; 
                 }
             }
         });
@@ -148,26 +145,26 @@ class Fighter {
         this.isAtk = true; this.dir = (target.x > this.x) ? 1 : -1;
         if(this.type === 'sword') {
             const sw = document.getElementById(this.id + "-sword"); if(sw) sw.style.transform = "rotate(90deg)";
-            if(Math.abs(this.x - target.x) < 105 && Math.abs(this.y - target.y) < 70) this.hit(target, this.meleeP, 1.9);
-            setTimeout(() => { if(sw) sw.style.transform = "rotate(0deg)"; }, 200);
+            if(Math.abs(this.x - target.x) < 110 && Math.abs(this.y - target.y) < 70) this.hit(target, this.meleeP, 1.95);
+            setTimeout(() => { if(sw) sw.style.transform = "rotate(0deg)"; }, 150);
         } else if(this.type === "fighter") {
-            if(Math.abs(this.x - target.x) < 85 && Math.abs(this.y - target.y) < 65) this.hit(target, this.meleeP, 1.7);
+            if(Math.abs(this.x - target.x) < 90 && Math.abs(this.y - target.y) < 65) this.hit(target, this.meleeP, 1.75);
         } else { this.fireProjectile(this.projP, this.projS); this.ammo--; }
         setTimeout(()=>this.isAtk=false, this.cd);
     }
     fireProjectile(pwr, speed) {
-        const p = { x: this.x + (this.dir*30), startX: this.x, y: this.y + 25, vx: this.dir*speed, owner: this, pwr, maxRange: 450, el: document.createElement("div") };
+        const p = { x: this.x + (this.dir*30), startX: this.x, y: this.y + 25, vx: this.dir*speed, owner: this, pwr, maxRange: 500, el: document.createElement("div") };
         p.el.className = "projectile"; p.el.style.background = (this.type==="sword"?"#00ffff":"#ffff00");
         document.getElementById("game-stage").appendChild(p.el); projectiles.push(p);
     }
     useSP(target) {
         if(!this.spReady) return; this.spReady = false; showEffect("ULTIMATE SP!");
-        if(this.type === "fighter") { this.vx = this.dir * 42; setTimeout(()=> { if(Math.abs(this.x-target.x)<120) this.hit(target,38,2.8); }, 150); }
-        else if(this.type === "sword") { for(let i=0;i<4;i++) setTimeout(()=>this.fireProjectile(13,18), i*150); }
-        else { for(let i=0;i<16;i++) setTimeout(()=>this.fireProjectile(7,28), i*50); }
-        setTimeout(()=>this.spReady=true, 10000);
+        if(this.type === "fighter") { this.vx = this.dir * 45; setTimeout(()=> { if(Math.abs(this.x-target.x)<120) this.hit(target,40,3.0); }, 150); }
+        else if(this.type === "sword") { for(let i=0;i<4;i++) setTimeout(()=>this.fireProjectile(14,20), i*120); }
+        else { for(let i=0;i<16;i++) setTimeout(()=>this.fireProjectile(8,30), i*40); }
+        setTimeout(()=>this.spReady=true, 9000);
     }
-    hit(target, pwr, kbM) { if(target.isInvincible) return; target.damage += pwr; const kb = ((target.damage / 5) + 10) * kbM; target.vx = (target.x < this.x ? -1 : 1) * kb; target.vy = kb * 0.35 + 6; }
+    hit(target, pwr, kbM) { if(target.isInvincible) return; target.damage += pwr; const kb = ((target.damage / 4) + 12) * kbM; target.vx = (target.x < this.x ? -1 : 1) * kb; target.vy = kb * 0.38 + 7; }
 }
 
 let p1 = new Fighter("p1", 350, "#3498db", "1P"), p2 = new Fighter("p2", 710, "#e74c3c", "2P");
@@ -192,41 +189,47 @@ window.addEventListener("keyup", e => keys[e.code] = false);
 
 function loop() {
     if(!isRunning) return;
-    if(keys[p1.controls.left]) { p1.vx -= 0.85; p1.dir = -1; } if(keys[p1.controls.right]) { p1.vx += 0.85; p1.dir = 1; }
+    if(keys[p1.controls.left]) { p1.vx -= MOVE_ACCEL; p1.dir = -1; } if(keys[p1.controls.right]) { p1.vx += MOVE_ACCEL; p1.dir = 1; }
     
-    // NEW COM LOGIC
+    // ENHANCED COM LOGIC
     if(mode==="com") {
         const lvl = parseInt(document.getElementById("com-lvl").value);
         let dist = Math.abs(p1.x - p2.x);
         const stageLeft = 200, stageRight = 900;
         
-        // 1. 場外耐久を物理的に不可能にする制限
-        const isFarOutside = p2.x < stageLeft - 100 || p2.x > stageRight + 100;
-        const isAtEdge = p2.x < stageLeft + 50 || p2.x > stageRight - 50;
-
-        if (isFarOutside) {
-            // 場外に追い出されたら中央に必死に戻る（ジャンプ回数は Fighter クラス側で 2 回に制限済み）
-            p2.vx += (p2.x < 550 ? 0.7 : -0.7);
-            if (p2.vy < 0) p2.jump(); 
-        } else if (isAtEdge) {
-            // 2. 逃げずに「崖際で攻撃を振って抵抗する」
-            p2.vx += (p2.x < 550 ? 0.3 : -0.3); // ゆっくり内側へ
-            if (dist < 150) p2.attack(p1); // 近づく敵を追い払う
-            if (Math.random() < 0.05 * lvl && p2.jumps === 0) p2.jump(); // 崖際で固まらないよう跳ねる
+        // 場外復帰（最優先）
+        if (p2.x < stageLeft - 20 || p2.x > stageRight + 20) {
+            p2.vx += (p2.x < 550 ? 0.9 : -0.9);
+            if (p2.vy < -1) p2.jump(); 
         } else {
-            // 3. 通常戦闘（ステージ内）
-            let targetX = p1.x + (p2.type === "gun" ? (p1.x > p2.x ? -280 : 280) : (p1.x > p2.x ? -20 : 20));
-            p2.vx += (p2.x < targetX ? 0.4 + lvl*0.05 : -0.4 - lvl*0.05);
+            // 崖際抵抗 & 防御
+            const nearEdge = p2.x < stageLeft + 60 || p2.x > stageRight - 60;
+            if (nearEdge) {
+                p2.vx += (p2.x < 550 ? 0.6 : -0.6);
+                if (dist < 180) p2.attack(p1);
+            }
 
-            // ジャンプ攻撃
-            if (dist < 200 && p1.y > p2.y + 50 && p2.jumps === 0) p2.jump();
+            // 回避思考：相手が攻撃中、または距離が近すぎる時に確率でジャンプ/距離を取る
+            if (dist < 120 && Math.random() < 0.05 * lvl) {
+                p2.jump(); // 対空・めくり回避
+                p2.vx += (p2.x > p1.x ? 1.5 : -1.5); // 離脱
+            }
+
+            // 追い上げ & 間合い管理
+            let optimalDist = (p2.type === "gun" ? 300 : 25);
+            let targetX = p1.x + (p1.x > p2.x ? -optimalDist : optimalDist);
+            
+            // 銃タイプなら「引き撃ち」を再現
+            if (p2.type === "gun" && dist < 200) targetX = p2.x + (p2.x > p1.x ? 150 : -150);
+
+            p2.vx += (p2.x < targetX ? 0.6 + lvl*0.06 : -0.6 - lvl*0.06);
 
             // 攻撃実行
-            if(dist < (p2.type==="gun"?550:115) && Math.random() < (0.015 * lvl)) p2.attack(p1);
-            if(lvl >= 5 && p2.spReady && dist < 380 && Math.random() < 0.1) p2.useSP(p1);
+            if(dist < (p2.type==="gun"?550:130) && Math.random() < (0.02 * lvl)) p2.attack(p1);
+            if(lvl >= 8 && p2.spReady && dist < 400 && Math.random() < 0.15) p2.useSP(p1);
         }
     } else {
-        if(keys[p2.controls.left]) { p2.vx -= 0.85; p2.dir = -1; } if(keys[p2.controls.right]) { p2.vx += 0.85; p2.dir = 1; }
+        if(keys[p2.controls.left]) { p2.vx -= MOVE_ACCEL; p2.dir = -1; } if(keys[p2.controls.right]) { p2.vx += MOVE_ACCEL; p2.dir = 1; }
     }
 
     p1.update(); p2.update();
@@ -238,17 +241,19 @@ function loop() {
         else if(p.x < -400 || p.x > 1500 || Math.abs(p.x - p.startX) > p.maxRange) { p.el.remove(); projectiles.splice(i, 1); }
     });
 
-    if(document.getElementById("item-spawn").value === "on" && Math.random() < 0.005) {
-        const isBomb = Math.random() < 0.66;
+    // アイテム出現（中央寄り）
+    if(document.getElementById("item-spawn").value === "on" && Math.random() < 0.006) {
+        const isBomb = Math.random() < 0.6;
         const type = isBomb ? "bomb" : "heal";
-        const spawnX = 200 + Math.random()*700;
+        const spawnX = 250 + Math.random()*600;
         const it = { x: spawnX, y: 750, vy: 0, type, el: document.createElement("div"), warnEl: document.createElement("div"), guideEl: document.createElement("div") };
         it.el.className = "item";
-        if(isBomb) { it.el.style.background = "#ff4757"; it.el.innerText = "!"; } else { it.el.style.background = "#2ecc71"; it.el.innerText = "+"; }
+        it.el.style.background = isBomb ? "#ff4757" : "#2ecc71";
+        it.el.innerText = isBomb ? "!" : "+";
         it.warnEl.className = "item-warning"; 
         it.warnEl.innerText = isBomb ? "⚠" : "♥";
         it.warnEl.style.left = (spawnX - 4) + "px";
-        it.warnEl.style.background = isBomb ? "#ff4757" : "#2ecc71";
+        it.warnEl.style.background = it.el.style.background;
         it.guideEl.className = "item-guide-line"; 
         it.guideEl.style.left = (spawnX + 12) + "px";
         it.guideEl.style.background = isBomb ? "rgba(255, 71, 87, 0.2)" : "rgba(46, 204, 113, 0.2)";
@@ -257,18 +262,17 @@ function loop() {
     }
 
     items.forEach((it, i) => {
-        it.vy -= 0.05; 
-        it.y += it.vy; 
+        it.vy -= 0.07; it.y += it.vy; 
         it.el.style.left = it.x+"px"; it.el.style.bottom = it.y+"px";
-        if(it.y < 580) { if(it.warnEl) { it.warnEl.remove(); it.warnEl = null; } if(it.guideEl) { it.guideEl.remove(); it.guideEl = null; } }
+        if(it.y < 580) { if(it.warnEl) it.warnEl.remove(); if(it.guideEl) it.guideEl.remove(); }
         [p1, p2].forEach(p => {
             if(Math.abs(p.x-it.x)<40 && Math.abs(p.y-it.y)<50) {
                 if(it.type === "heal") { p.damage = Math.max(0, p.damage - 30); showEffect("HEAL!"); }
-                else { p.damage += 35; p.vx = (p.x < it.x ? -25 : 25); p.vy = 15; showEffect("BOOM!"); }
-                it.el.remove(); if(it.warnEl) it.warnEl.remove(); if(it.guideEl) it.guideEl.remove(); items.splice(i, 1);
+                else { p.damage += 35; p.vx = (p.x < it.x ? -28 : 28); p.vy = 16; showEffect("BOOM!"); }
+                it.el.remove(); items.splice(i, 1);
             }
         });
-        if(it.y < -100) { it.el.remove(); if(it.warnEl) it.warnEl.remove(); if(it.guideEl) it.guideEl.remove(); items.splice(i, 1); }
+        if(it.y < -100) { it.el.remove(); items.splice(i, 1); }
     });
     requestAnimationFrame(loop);
 }
