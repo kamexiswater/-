@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Browser Smash - Aggressive COM & Items</title>
+    <title>Browser Smash - Item Customizer</title>
     <style>
         body { margin: 0; background: #1a1a1a; color: white; font-family: sans-serif; text-align: center; overflow: hidden; }
         #menu, #result-screen {
@@ -12,6 +12,8 @@
         .config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; background: #333; padding: 20px; border-radius: 15px; margin: 10px; text-align: left; }
         select { padding: 8px; font-size: 14px; border-radius: 5px; width: 150px; }
         button { background: #ff4757; color: white; cursor: pointer; font-size: 20px; padding: 12px 40px; border: none; border-radius: 8px; margin: 10px; }
+        
+        #controls-guide { margin-top: 15px; padding: 10px; background: rgba(0,0,0,0.5); border-radius: 10px; font-size: 13px; color: #ccc; }
         
         #game-container { display: none; }
         #ui-container { margin-top: 5px; display: flex; justify-content: center; gap: 20px; }
@@ -40,22 +42,24 @@
             <strong>【P1】</strong><strong>【P2】</strong>
             <div>タイプ: <select id="type1"><option value="fighter">格闘</option><option value="sword">剣</option><option value="gun">銃</option></select></div>
             <div>タイプ: <select id="type2"><option value="fighter">格闘</option><option value="sword">剣</option><option value="gun" selected>銃</option></select></div>
-            <div>操作: <select id="style1"><option value="wasd">WASD (F:攻/G:SP)</option><option value="arrow">矢印 (.:攻/,:SP)</option></select></div>
-            <div>操作: <select id="style2"><option value="arrow" selected>矢印 (.:攻/,:SP)</option><option value="wasd">WASD (F:攻/G:SP)</option></select></div>
-            <strong>【設定】</strong><div></div>
-            <span>COMレベル:</span>
+            <div>操作: <select id="style1" onchange="updateGuide()"><option value="wasd">WASD設定</option><option value="arrow">矢印設定</option></select></div>
+            <div>操作: <select id="style2" onchange="updateGuide()"><option value="arrow" selected>矢印設定</option><option value="wasd">WASD設定</option></select></div>
+            <strong>【アイテム設定】</strong><strong>【COMレベル】</strong>
+            <div>出現: <select id="item-spawn"><option value="on">ON</option><option value="off">OFF</option></select></div>
             <select id="com-lvl">
                 <option value="1">Lv.1</option><option value="2">Lv.2</option><option value="3">Lv.3</option><option value="4">Lv.4</option><option value="5" selected>Lv.5</option>
             </select>
-            <span>ステージ: <select id="stage-select">
-                <option value="random">★ランダム★</option>
-                <option value="final">終点</option>
-                <option value="small">小戦場</option>
-                <option value="battle">戦場</option>
-            </select></span>
+            <div>地形貫通: <select id="item-ghost"><option value="off">OFF (接地)</option><option value="on">ON (貫通)</option></select></div>
+            <strong>【ステージ】</strong>
+            <div><select id="stage-select"><option value="random">ランダム</option><option value="final">終点</option><option value="small">小戦場</option><option value="battle" selected>戦場</option></select></div>
         </div>
-        <button onclick="startGame('com')">VS COM</button>
-        <button onclick="startGame('p2')">VS 2P</button>
+        
+        <div id="controls-guide"></div>
+
+        <div style="margin-top:10px;">
+            <button onclick="startGame('com')">VS COM</button>
+            <button onclick="startGame('p2')">VS 2P</button>
+        </div>
     </div>
 
     <div id="result-screen" style="display:none;"><h1 id="winner-text"></h1><button onclick="location.reload()">タイトルへ</button></div>
@@ -71,6 +75,14 @@
 <script>
 const GRAVITY = 0.48, FRICTION = 0.88;
 let mode = "p2", isRunning = false, projectiles = [], items = [], keys = {}, platforms = [];
+
+function updateGuide() {
+    const s1 = document.getElementById("style1").value;
+    const s2 = document.getElementById("style2").value;
+    const guide = (s) => s === "wasd" ? "W:跳 A:左 D:右 F:攻 G:SP" : "↑:跳 ←:左 →:右 .:攻 ,:SP";
+    document.getElementById("controls-guide").innerHTML = `P1 [${s1.toUpperCase()}]: ${guide(s1)}<br>P2 [${s2.toUpperCase()}]: ${guide(s2)}`;
+}
+updateGuide();
 
 const getControls = (id) => {
     const style = document.getElementById(id==="p1"?"style1":"style2").value;
@@ -91,10 +103,8 @@ class Fighter {
         this.controls = getControls(this.id);
         this.isInvincible = true; setTimeout(() => this.isInvincible = false, 1500);
         this.type = document.getElementById(this.id==="p1"?"type1":"type2").value;
-        
         const stats = { fighter: [14, 0, 0, 450], sword: [11, 7, 14, 380], gun: [8, 8, 20, 160] };
         [this.meleeP, this.projP, this.projS, this.cd] = stats[this.type];
-
         if(!this.el) { this.el = document.createElement("div"); this.el.id = this.id; document.getElementById("game-stage").appendChild(this.el); }
         this.el.className = `player type-${this.type}`;
         this.el.innerHTML = `<div style="position:absolute;top:-25px;width:100%;text-align:center;font-size:11px;">${this.label}</div>
@@ -109,9 +119,7 @@ class Fighter {
                 if (this.oldY >= p.y && this.y <= p.y) { this.y = p.y; this.vy = 0; this.jumps = 0; }
             }
         });
-
         if (this.x < -350 || this.x > 1450 || this.y < -350 || this.y > 1100) this.out();
-
         this.el.style.left = this.x + "px"; this.el.style.bottom = this.y + "px";
         this.el.style.transform = `scaleX(${this.dir})`;
         this.el.style.opacity = this.isInvincible ? 0.4 : 1;
@@ -120,43 +128,28 @@ class Fighter {
         document.getElementById(this.id+"-sp").innerText = this.spReady ? "SP: READY" : "SP: CHARGING";
     }
     out() { this.stock--; if(this.stock <= 0) endGame(this.id==="p1"?"P2":"P1"); else { showEffect("K.O."); this.reset(false); } }
-    
     attack(target) {
         if(this.isAtk) return; this.isAtk = true;
-        // 向きをターゲットに合わせる（バグ防止）
         this.dir = (target.x > this.x) ? 1 : -1;
-
-        if(this.type !== "fighter") {
-            this.fireProjectile(this.projP, this.projS);
-        } else {
-            // 格闘判定の修正：重なっていてもヒットするように
+        if(this.type !== "fighter") this.fireProjectile(this.projP, this.projS);
+        else {
             const range = 85;
-            if(Math.abs(this.x - target.x) < range && Math.abs(this.y - target.y) < 65) {
-                this.hit(target, this.meleeP, 1.7);
-            }
+            if(Math.abs(this.x - target.x) < range && Math.abs(this.y - target.y) < 65) this.hit(target, this.meleeP, 1.7);
         }
         setTimeout(()=>this.isAtk=false, this.cd);
     }
-
     fireProjectile(pwr, speed) {
         const p = { x: this.x + (this.dir*30), y: this.y + 25, vx: this.dir*speed, owner: this, pwr, el: document.createElement("div") };
         p.el.className = "projectile"; p.el.style.background = (this.type==="sword"?"#00ffff":"#ffff00");
         document.getElementById("game-stage").appendChild(p.el); projectiles.push(p);
     }
-
     useSP(target) {
         if(!this.spReady) return; this.spReady = false; showEffect("ULTIMATE SP!");
-        if(this.type === "fighter") { 
-            this.vx = this.dir * 42; 
-            setTimeout(()=> { if(Math.abs(this.x-target.x)<120) this.hit(target,38,2.8); }, 150); 
-        } else if(this.type === "sword") { 
-            for(let i=0;i<4;i++) setTimeout(()=>this.fireProjectile(13,18), i*150); 
-        } else {
-            for(let i=0;i<16;i++) setTimeout(()=>this.fireProjectile(7,28), i*50);
-        }
+        if(this.type === "fighter") { this.vx = this.dir * 42; setTimeout(()=> { if(Math.abs(this.x-target.x)<120) this.hit(target,38,2.8); }, 150); }
+        else if(this.type === "sword") { for(let i=0;i<4;i++) setTimeout(()=>this.fireProjectile(13,18), i*150); }
+        else { for(let i=0;i<16;i++) setTimeout(()=>this.fireProjectile(7,28), i*50); }
         setTimeout(()=>this.spReady=true, 10000);
     }
-
     hit(target, pwr, kbM) {
         if(target.isInvincible) return; target.damage += pwr;
         const kb = ((target.damage / 5) + 10) * kbM;
@@ -168,10 +161,7 @@ let p1 = new Fighter("p1", 350, "#3498db", "1P"), p2 = new Fighter("p2", 710, "#
 
 function setupStage() {
     let stage = document.getElementById("stage-select").value;
-    if(stage === "random") {
-        const stages = ["final", "small", "battle"];
-        stage = stages[Math.floor(Math.random() * stages.length)];
-    }
+    if(stage === "random") stage = ["final", "small", "battle"][Math.floor(Math.random() * 3)];
     const stageEl = document.getElementById("game-stage");
     platforms = [{x: 200, y: 120, w: 700}];
     if(stage === "small") platforms.push({x: 300, y: 280, w: 150}, {x: 650, y: 280, w: 150});
@@ -206,41 +196,19 @@ window.addEventListener("keyup", e => keys[e.code] = false);
 
 function loop() {
     if(!isRunning) return;
-    
-    // P1 移動
-    if(keys[p1.controls.left]) { p1.vx -= 0.85; p1.dir = -1; } 
-    if(keys[p1.controls.right]) { p1.vx += 0.85; p1.dir = 1; }
-    
-    // P2 移動（2PまたはCOM）
+    if(keys[p1.controls.left]) { p1.vx -= 0.85; p1.dir = -1; } if(keys[p1.controls.right]) { p1.vx += 0.85; p1.dir = 1; }
     if(mode==="p2") {
         if(keys[p2.controls.left]) { p2.vx -= 0.85; p2.dir = -1; } if(keys[p2.controls.right]) { p2.vx += 0.85; p2.dir = 1; }
     } else {
         const lvl = parseInt(document.getElementById("com-lvl").value);
-        let diff = p1.x - p2.x;
-        let dist = Math.abs(diff);
-        
-        // COM超積極アルゴリズム
-        if(dist > (p2.type==="gun" ? 300 : 40)) {
-            p2.vx += (diff > 0 ? 0.25 + lvl*0.12 : -0.25 - lvl*0.12);
-        }
-        
-        // 攻撃ロジック（重なりバグ回避済み）
-        if(dist < 500 && Math.random() < 0.02 * lvl) {
-            p2.attack(p1);
-        }
-        if(lvl >= 4 && p2.spReady && dist < 350 && Math.random() < 0.08) {
-            p2.useSP(p1);
-        }
-        
-        // ジャンプ・復帰
-        if((p2.y <= 120 && Math.random() < 0.05 * lvl) || p2.y < 50) {
-            p2.vy = 12.8; p2.jumps++;
-        }
+        let diff = p1.x - p2.x; let dist = Math.abs(diff);
+        if(dist > (p2.type==="gun" ? 300 : 40)) p2.vx += (diff > 0 ? 0.25 + lvl*0.12 : -0.25 - lvl*0.12);
+        if(dist < 500 && Math.random() < 0.02 * lvl) p2.attack(p1);
+        if(lvl >= 4 && p2.spReady && dist < 350 && Math.random() < 0.08) p2.useSP(p1);
+        if((p2.y <= 120 && Math.random() < 0.05 * lvl) || p2.y < 50) { p2.vy = 12.8; p2.jumps++; }
     }
-
     p1.update(); p2.update();
 
-    // プロジェクタイル
     projectiles.forEach((p, i) => {
         p.x += p.vx; p.el.style.left = p.x+"px"; p.el.style.bottom = p.y+"px";
         let target = p.owner === p1 ? p2 : p1;
@@ -250,22 +218,18 @@ function loop() {
         } else if(p.x < -400 || p.x > 1500) { p.el.remove(); projectiles.splice(i, 1); }
     });
 
-    // アイテムシステム
-    if(Math.random() < 0.004) {
+    if(document.getElementById("item-spawn").value === "on" && Math.random() < 0.004) {
         const type = Math.random() > 0.6 ? "heal" : "bomb";
         const it = { x: 100 + Math.random()*900, y: 650, vy: 0, type, el: document.createElement("div") };
-        it.el.className = "item";
-        it.el.style.background = type === "heal" ? "#2ecc71" : "#ff4757";
-        document.getElementById("game-stage").appendChild(it.el);
-        items.push(it);
+        it.el.className = "item"; it.el.style.background = type === "heal" ? "#2ecc71" : "#ff4757";
+        document.getElementById("game-stage").appendChild(it.el); items.push(it);
     }
     items.forEach((it, i) => {
         it.vy -= 0.2; it.y += it.vy;
-        platforms.forEach(p => {
-            if(it.x > p.x && it.x < p.x + p.w && it.y < p.y) { it.y = p.y; it.vy = 0; }
-        });
+        if(document.getElementById("item-ghost").value === "off") {
+            platforms.forEach(p => { if(it.x > p.x && it.x < p.x + p.w && it.y < p.y && it.y > p.y-20) { it.y = p.y; it.vy = 0; } });
+        }
         it.el.style.left = it.x+"px"; it.el.style.bottom = it.y+"px";
-        
         [p1, p2].forEach(p => {
             if(Math.abs(p.x-it.x)<40 && Math.abs(p.y-it.y)<50) {
                 if(it.type === "heal") { p.damage = Math.max(0, p.damage - 25); showEffect("HEAL!"); }
@@ -275,7 +239,6 @@ function loop() {
         });
         if(it.y < -100) { it.el.remove(); items.splice(i, 1); }
     });
-
     requestAnimationFrame(loop);
 }
 function showEffect(t) { const o = document.getElementById("overlay"); o.innerText = t; setTimeout(()=>o.innerText="", 1200); }
