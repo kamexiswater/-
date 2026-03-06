@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Browser Smash - True God AI (Final Fixed)</title>
+    <title>Browser Smash - True God AI (No Fly Fix)</title>
     <style>
         body { margin: 0; background: #1a1a1a; color: white; font-family: sans-serif; text-align: center; overflow: hidden; }
         #menu, #result-screen {
@@ -35,7 +35,6 @@
         .item { position: absolute; width: 25px; height: 25px; border-radius: 5px; border: 2px solid #fff; z-index: 5; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 18px; }
         .item-warning { position: absolute; top: 10px; width: 34px; height: 34px; color: white; font-weight: bold; font-size: 22px; border-radius: 50%; display: flex; justify-content: center; align-items: center; animation: blink 0.25s infinite alternate; z-index: 20; border: 2px solid white; }
         .item-guide-line { position: absolute; top: 0; width: 2px; height: 100%; z-index: 4; }
-        @keyframes blink { from { opacity: 1; transform: scale(1); } to { opacity: 0.6; transform: scale(1.1); } }
         #overlay { position: absolute; top: 30%; left: 50%; transform: translate(-50%, -50%); font-size: 60px; font-weight: bold; color: #ff0; text-shadow: 3px 3px 0 #000; pointer-events: none; z-index: 100; }
     </style>
 </head>
@@ -69,7 +68,7 @@
     </div>
 
 <script>
-const GRAVITY = 0.48, FRICTION = 0.88;
+const GRAVITY = 0.52, FRICTION = 0.88;
 let mode = "p2", isRunning = false, projectiles = [], items = [], keys = {}, platforms = [];
 
 function updateGuide() {
@@ -89,6 +88,7 @@ class Fighter {
     constructor(id, x, color, label) {
         this.id = id; this.el = null; this.startX = x; this.color = color; this.label = label;
         this.stock = 3; this.spReady = true; this.damage = 0; this.ammo = 12; this.isReloading = false;
+        this.jumps = 0;
     }
     reset(full) {
         if(full) this.stock = 3;
@@ -107,13 +107,31 @@ class Fighter {
                              <div style="width:22px;height:30px;background:${this.color};margin:-2px auto;border:2px solid #000;border-radius:4px;"></div>
                              ${this.type==='sword' ? '<div class="sword-obj" id="'+this.id+'-sword"></div>' : ''}`;
     }
+    jump() {
+        if(this.jumps < 2) {
+            this.vy = 12.5;
+            this.jumps++;
+        }
+    }
     update() {
-        this.oldY = this.y; this.vy -= GRAVITY; this.x += this.vx; this.y += this.vy; this.vx *= FRICTION;
+        this.oldY = this.y; 
+        this.vy -= GRAVITY; 
+        this.x += this.vx; 
+        this.y += this.vy; 
+        this.vx *= FRICTION;
+
+        let onGround = false;
         platforms.forEach(p => {
             if (this.vy <= 0 && (this.x + 25 > p.x && this.x + 5 < p.x + p.w)) {
-                if (this.oldY >= p.y && this.y <= p.y) { this.y = p.y; this.vy = 0; this.jumps = 0; }
+                if (this.oldY >= p.y && this.y <= p.y) { 
+                    this.y = p.y; 
+                    this.vy = 0; 
+                    this.jumps = 0; 
+                    onGround = true;
+                }
             }
         });
+
         if (this.x < -350 || this.x > 1450 || this.y < -350 || this.y > 1100) this.out();
         this.el.style.left = this.x + "px"; this.el.style.bottom = this.y + "px";
         this.el.style.transform = `scaleX(${this.dir})`;
@@ -169,61 +187,42 @@ function setupStage() {
 function startGame(m) { mode = m; projectiles = []; items = []; setupStage(); document.getElementById("menu").style.display = "none"; document.getElementById("game-container").style.display = "block"; p1.reset(true); p2.reset(true); isRunning = true; loop(); }
 function endGame(win) { isRunning = false; document.getElementById("result-screen").style.display = "flex"; document.getElementById("winner-text").innerText = win + " WINS!"; }
 
-window.addEventListener("keydown", e => { keys[e.code] = true; if(!isRunning) return; [p1, p2].forEach(p => { if(p === p2 && mode === "com") return; if(e.code === p.controls.up && p.jumps < 2) { p.vy=12.5; p.jumps++; } if(e.code === p.controls.atk) p.attack(p===p1?p2:p1); if(e.code === p.controls.sp) p.useSP(p===p1?p2:p1); }); });
+window.addEventListener("keydown", e => { keys[e.code] = true; if(!isRunning) return; [p1, p2].forEach(p => { if(p === p2 && mode === "com") return; if(e.code === p.controls.up) p.jump(); if(e.code === p.controls.atk) p.attack(p===p1?p2:p1); if(e.code === p.controls.sp) p.useSP(p===p1?p2:p1); }); });
 window.addEventListener("keyup", e => keys[e.code] = false);
 
 function loop() {
     if(!isRunning) return;
     if(keys[p1.controls.left]) { p1.vx -= 0.85; p1.dir = -1; } if(keys[p1.controls.right]) { p1.vx += 0.85; p1.dir = 1; }
     
-    // 改良版 COMロジック: 全レベルで「復帰優先」を徹底
+    // NEW COM LOGIC
     if(mode==="com") {
         const lvl = parseInt(document.getElementById("com-lvl").value);
         let dist = Math.abs(p1.x - p2.x);
-        
-        // メインステージの範囲
         const stageLeft = 200, stageRight = 900;
-        const safetyMargin = 30; 
-        const isOutside = p2.x < stageLeft + safetyMargin || p2.x > stageRight - safetyMargin;
+        
+        // 1. 場外耐久を物理的に不可能にする制限
+        const isFarOutside = p2.x < stageLeft - 100 || p2.x > stageRight + 100;
+        const isAtEdge = p2.x < stageLeft + 50 || p2.x > stageRight - 50;
 
-        if (isOutside) {
-            // 1. 【復帰モード】戦闘を停止し、中央へ戻る
-            p2.vx += (p2.x < 550 ? 0.8 : -0.8);
-            
-            // 落下しているときのみ、かつ一定の高さ以下ならジャンプ
-            if (p2.vy < -1 && p2.jumps < 2) {
-                if (p2.y < 180) { // ステージの床より少し高い位置を目標にする
-                    p2.vy = 12.5; p2.jumps++;
-                }
-            }
+        if (isFarOutside) {
+            // 場外に追い出されたら中央に必死に戻る（ジャンプ回数は Fighter クラス側で 2 回に制限済み）
+            p2.vx += (p2.x < 550 ? 0.7 : -0.7);
+            if (p2.vy < 0) p2.jump(); 
+        } else if (isAtEdge) {
+            // 2. 逃げずに「崖際で攻撃を振って抵抗する」
+            p2.vx += (p2.x < 550 ? 0.3 : -0.3); // ゆっくり内側へ
+            if (dist < 150) p2.attack(p1); // 近づく敵を追い払う
+            if (Math.random() < 0.05 * lvl && p2.jumps === 0) p2.jump(); // 崖際で固まらないよう跳ねる
         } else {
-            // 2. 【戦闘モード】ステージ内にいるときの知能
-            
-            // 回避：飛び道具が近い場合
-            if (lvl >= 5 && projectiles.some(p => p.owner === p1 && Math.abs(p.x - p2.x) < 110)) {
-                if(p2.jumps < 2 && Math.random() < (0.05 * lvl)) { p2.vy = 10.5; p2.jumps++; }
-            }
-            
-            // 間合い管理：プレイヤーが場外なら追いかけない（崖待ち）
-            let targetX = p1.x;
-            if (p1.x < stageLeft || p1.x > stageRight) {
-                targetX = (p1.x < stageLeft) ? stageLeft + 60 : stageRight - 60;
-            } else {
-                targetX = p1.x + (p2.type === "gun" ? (p1.x > p2.x ? -280 : 280) : (p1.x > p2.x ? -25 : 25));
-            }
-            
-            p2.vx += (p2.x < targetX ? 0.35 + lvl*0.08 : -0.35 - lvl*0.08);
+            // 3. 通常戦闘（ステージ内）
+            let targetX = p1.x + (p2.type === "gun" ? (p1.x > p2.x ? -280 : 280) : (p1.x > p2.x ? -20 : 20));
+            p2.vx += (p2.x < targetX ? 0.4 + lvl*0.05 : -0.4 - lvl*0.05);
 
-            // アイテム奪取（場内のもの限定）
-            if(lvl >= 5 && items.length > 0) { 
-                let it = items[0]; 
-                if (it.x > stageLeft && it.x < stageRight) {
-                    p2.vx += (p2.x < it.x ? 0.6 : -0.6); 
-                }
-            }
+            // ジャンプ攻撃
+            if (dist < 200 && p1.y > p2.y + 50 && p2.jumps === 0) p2.jump();
 
             // 攻撃実行
-            if(dist < (p2.type==="gun"?550:115) && Math.random() < (0.014 * lvl)) p2.attack(p1);
+            if(dist < (p2.type==="gun"?550:115) && Math.random() < (0.015 * lvl)) p2.attack(p1);
             if(lvl >= 5 && p2.spReady && dist < 380 && Math.random() < 0.1) p2.useSP(p1);
         }
     } else {
@@ -242,7 +241,7 @@ function loop() {
     if(document.getElementById("item-spawn").value === "on" && Math.random() < 0.005) {
         const isBomb = Math.random() < 0.66;
         const type = isBomb ? "bomb" : "heal";
-        const spawnX = 150 + Math.random()*800;
+        const spawnX = 200 + Math.random()*700;
         const it = { x: spawnX, y: 750, vy: 0, type, el: document.createElement("div"), warnEl: document.createElement("div"), guideEl: document.createElement("div") };
         it.el.className = "item";
         if(isBomb) { it.el.style.background = "#ff4757"; it.el.innerText = "!"; } else { it.el.style.background = "#2ecc71"; it.el.innerText = "+"; }
