@@ -1,431 +1,333 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<title>Browser Smash</title>
+    <meta charset="UTF-8">
+    <title>Super Browser Smash DX</title>
+    <style>
+        body {
+            margin: 0;
+            background: #1a1a1a;
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            text-align: center;
+            overflow: hidden;
+            user-select: none;
+        }
 
-<style>
-body{
-margin:0;
-background:#111;
-color:white;
-font-family:sans-serif;
-text-align:center;
-}
+        #ui-container {
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+            gap: 50px;
+        }
 
-#menu{
-margin-top:30px;
-}
+        .status-card {
+            background: rgba(0,0,0,0.7);
+            padding: 10px 20px;
+            border-radius: 10px;
+            border: 2px solid #444;
+            min-width: 150px;
+        }
 
-button{
-font-size:18px;
-padding:10px 20px;
-margin:5px;
-cursor:pointer;
-}
+        .damage-percent {
+            font-size: 48px;
+            font-weight: bold;
+            display: block;
+            transition: color 0.2s;
+        }
 
-#game{
-width:900px;
-height:500px;
-margin:20px auto;
-background:linear-gradient(#87ceeb,#dff7ff);
-border:4px solid black;
-position:relative;
-overflow:hidden;
-display:none;
-}
+        #game-stage {
+            width: 1000px;
+            height: 600px;
+            margin: 20px auto;
+            background: linear-gradient(to bottom, #1e3c72, #2a5298);
+            border: 5px solid #000;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 50px rgba(0,0,0,0.5);
+        }
 
-.platform{
-position:absolute;
-bottom:40px;
-width:100%;
-height:20px;
-background:#333;
-}
+        /* ステージの床 */
+        .main-platform {
+            position: absolute;
+            left: 200px;
+            bottom: 150px;
+            width: 600px;
+            height: 40px;
+            background: #444;
+            border-bottom: 10px solid #222;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+        }
 
-.player{
-position:absolute;
-width:40px;
-height:70px;
-}
+        .player {
+            position: absolute;
+            width: 40px;
+            height: 60px;
+            transition: transform 0.1s;
+        }
 
-.head{
-width:20px;
-height:20px;
-background:#ffd1a4;
-border-radius:50%;
-margin:auto;
-}
+        /* キャラクターの外見 */
+        .character-art {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+        .head { width: 24px; height: 24px; background: #ffd1a4; border-radius: 50%; margin: 0 auto; border: 2px solid #000; }
+        .body { width: 20px; height: 30px; background: #eee; margin: -2px auto; border: 2px solid #000; border-radius: 5px; }
+        
+        /* エフェクト */
+        .hit-effect {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background: white;
+            border-radius: 50%;
+            animation: flash 0.2s forwards;
+            pointer-events: none;
+        }
 
-.body{
-width:6px;
-height:30px;
-background:white;
-margin:auto;
-}
+        @keyframes flash {
+            0% { transform: scale(0); opacity: 1; }
+            100% { transform: scale(2); opacity: 0; }
+        }
 
-.arm{
-width:30px;
-height:4px;
-background:white;
-position:absolute;
-top:28px;
-left:5px;
-}
+        #overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 80px;
+            font-weight: bold;
+            color: #ff0;
+            text-shadow: 5px 5px 0 #000;
+            pointer-events: none;
+            z-index: 100;
+        }
 
-.leg{
-width:6px;
-height:25px;
-background:white;
-position:absolute;
-bottom:0;
-}
-
-.leg.left{left:10px;}
-.leg.right{right:10px;}
-
-.attack{
-position:absolute;
-width:40px;
-height:20px;
-background:yellow;
-}
-
-.special{
-position:absolute;
-width:60px;
-height:30px;
-background:red;
-}
-
-#ui{
-font-size:20px;
-}
-
-#result{
-font-size:40px;
-height:50px;
-}
-
-#combo{
-font-size:28px;
-color:yellow;
-height:30px;
-}
-</style>
+        .controls-guide {
+            color: #888;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+    </style>
 </head>
-
 <body>
 
-<div id="menu">
+    <h1>BROWSER SMASH DX</h1>
 
-<h1>Browser Smash</h1>
+    <div id="ui-container">
+        <div class="status-card">
+            <div>PLAYER 1</div>
+            <div id="p1-dmg" class="damage-percent">0%</div>
+        </div>
+        <div class="status-card">
+            <div>PLAYER 2</div>
+            <div id="p2-dmg" class="damage-percent">0%</div>
+        </div>
+    </div>
 
-<p>キャラ選択</p>
+    <div id="game-stage">
+        <div id="overlay"></div>
+        <div class="main-platform"></div>
+        <div id="p1" class="player"></div>
+        <div id="p2" class="player"></div>
+    </div>
 
-<select id="char1">
-<option value="power">パワー</option>
-<option value="speed">スピード</option>
-<option value="balanced">バランス</option>
-</select>
-
-<select id="char2">
-<option value="power">パワー</option>
-<option value="speed">スピード</option>
-<option value="balanced">バランス</option>
-</select>
-
-<br><br>
-
-<button onclick="startGame('com')">COM戦</button>
-<button onclick="startGame('p2')">2人対戦</button>
-
-</div>
-
-<div id="ui">
-<span id="hp"></span>
-</div>
-
-<div id="combo"></div>
-<div id="result"></div>
-
-<div id="game">
-
-<div class="platform"></div>
-
-<div id="p1" class="player"></div>
-<div id="p2" class="player"></div>
-
-</div>
+    <div class="controls-guide">
+        P1: [WASD] 移動/ジャンプ | [F] 攻撃 | [G] スペシャル <br>
+        P2: [矢印キー] 移動/ジャンプ | [L] 攻撃 | [K] スペシャル
+    </div>
 
 <script>
+/**
+ * 定数と設定
+ */
+const GRAVITY = 0.5;
+const FRICTION = 0.85;
+const STAGE_WIDTH = 1000;
+const STAGE_HEIGHT = 600;
+const GROUND_Y = 150; // 下からの高さ
 
-const game=document.getElementById("game")
-const menu=document.getElementById("menu")
+/**
+ * キャラクタークラス
+ */
+class Fighter {
+    constructor(id, x, color) {
+        this.el = document.getElementById(id);
+        this.id = id;
+        this.x = x;
+        this.y = GROUND_Y + 50;
+        this.vx = 0;
+        this.vy = 0;
+        this.damage = 0;
+        this.dir = (x < 500) ? 1 : -1;
+        this.isJumping = false;
+        this.jumpCount = 0;
+        this.maxJumps = 2;
+        this.width = 40;
+        this.height = 60;
+        this.isAttacking = false;
+        
+        // 見た目の生成
+        this.el.innerHTML = `
+            <div class="character-art" style="filter: drop-shadow(0 0 5px ${color})">
+                <div class="head"></div>
+                <div class="body" style="background: ${color}"></div>
+            </div>
+        `;
+    }
 
-function human(el){
-el.innerHTML=`
-<div class="head"></div>
-<div class="body"></div>
-<div class="arm"></div>
-<div class="leg left"></div>
-<div class="leg right"></div>
-`
+    update() {
+        // 重力
+        this.vy -= GRAVITY;
+        
+        // 座標更新
+        this.x += this.vx;
+        this.y += this.vy;
+
+        // 摩擦
+        this.vx *= FRICTION;
+
+        // 床との判定 (メインプラットフォーム: 200px ~ 800px)
+        const onPlatform = (this.x + this.width > 200 && this.x < 800);
+        if (onPlatform && this.y <= GROUND_Y && this.vy <= 0 && this.y > GROUND_Y - 20) {
+            this.y = GROUND_Y;
+            this.vy = 0;
+            this.jumpCount = 0;
+            this.isJumping = false;
+        }
+
+        // 場外判定 (バースト)
+        if (this.x < -100 || this.x > STAGE_WIDTH + 100 || this.y < -100 || this.y > STAGE_HEIGHT + 200) {
+            this.die();
+        }
+
+        this.draw();
+    }
+
+    draw() {
+        this.el.style.left = this.x + "px";
+        this.el.style.bottom = this.y + "px";
+        this.el.style.transform = `scaleX(${this.dir})`;
+        
+        // ダメージに応じた色変化 (赤くなる)
+        const dmgColor = Math.min(255, this.damage * 2);
+        const display = document.getElementById(`${this.id}-dmg`);
+        display.innerText = Math.floor(this.damage) + "%";
+        display.style.color = `rgb(255, ${255 - dmgColor}, ${255 - dmgColor})`;
+    }
+
+    jump() {
+        if (this.jumpCount < this.maxJumps) {
+            this.vy = 12;
+            this.jumpCount++;
+        }
+    }
+
+    attack(target, isSpecial = false) {
+        if (this.isAttacking) return;
+        this.isAttacking = true;
+
+        const range = isSpecial ? 80 : 50;
+        const power = isSpecial ? 15 : 7;
+        const knockbackBase = isSpecial ? 10 : 5;
+
+        // 攻撃用エフェクトの表示
+        const effect = document.createElement("div");
+        effect.className = "attack-hitbox";
+        effect.style.position = "absolute";
+        effect.style.width = range + "px";
+        effect.style.height = "40px";
+        effect.style.background = isSpecial ? "rgba(255,0,0,0.5)" : "rgba(255,255,255,0.5)";
+        effect.style.left = (this.dir === 1 ? this.width : -range) + "px";
+        effect.style.top = "10px";
+        this.el.appendChild(effect);
+
+        // ヒット判定
+        const hitX = this.dir === 1 ? this.x + this.width : this.x - range;
+        if (hitX < target.x + target.width && hitX + range > target.x &&
+            this.y < target.y + target.height && this.y + 40 > target.y) {
+            
+            // ヒット時処理
+            target.damage += power;
+            const kb = (target.damage / 10) + knockbackBase;
+            target.vx = this.dir * kb;
+            target.vy = kb * 0.5;
+            
+            createVisualEffect(target.x + 20, target.y + 30);
+        }
+
+        setTimeout(() => {
+            effect.remove();
+            this.isAttacking = false;
+        }, isSpecial ? 300 : 150);
+    }
+
+    die() {
+        showOverlay("KO!");
+        this.x = 500;
+        this.y = 500;
+        this.vx = 0;
+        this.vy = 0;
+        this.damage = 0;
+    }
 }
 
-human(p1)
-human(p2)
+/**
+ * ゲーム実行処理
+ */
+const p1 = new Fighter("p1", 300, "#3498db");
+const p2 = new Fighter("p2", 660, "#e74c3c");
 
-let mode="p2"
+const keys = {};
+window.addEventListener("keydown", e => keys[e.code] = true);
+window.addEventListener("keyup", e => keys[e.code] = false);
 
-const p1={
-el:document.getElementById("p1"),
-x:150,y:0,vx:0,vy:0,
-dmg:0,dir:1,
-combo:0,lastHit:0
+// ジャンプのトリガー（押しっぱなし防止）
+window.addEventListener("keydown", e => {
+    if (e.code === "KeyW") p1.jump();
+    if (e.code === "ArrowUp") p2.jump();
+    
+    // 攻撃
+    if (e.code === "KeyF") p1.attack(p2, false);
+    if (e.code === "KeyG") p1.attack(p2, true);
+    if (e.code === "KeyL") p2.attack(p1, false);
+    if (e.code === "KeyK") p2.attack(p1, true);
+});
+
+function createVisualEffect(x, y) {
+    const v = document.createElement("div");
+    v.className = "hit-effect";
+    v.style.left = x + "px";
+    v.style.bottom = y + "px";
+    document.getElementById("game-stage").appendChild(v);
+    setTimeout(() => v.remove(), 200);
 }
 
-const p2={
-el:document.getElementById("p2"),
-x:700,y:0,vx:0,vy:0,
-dmg:0,dir:-1,
-combo:0,lastHit:0
+function showOverlay(text) {
+    const el = document.getElementById("overlay");
+    el.innerText = text;
+    setTimeout(() => el.innerText = "", 1000);
 }
 
-const keys={}
+function gameLoop() {
+    // P1 コントロール
+    if (keys["KeyA"]) { p1.vx -= 0.8; p1.dir = -1; }
+    if (keys["KeyD"]) { p1.vx += 0.8; p1.dir = 1; }
 
-document.addEventListener("keydown",e=>keys[e.key]=true)
-document.addEventListener("keyup",e=>keys[e.key]=false)
+    // P2 コントロール
+    if (keys["ArrowLeft"]) { p2.vx -= 0.8; p2.dir = -1; }
+    if (keys["ArrowRight"]) { p2.vx += 0.8; p2.dir = 1; }
 
-function startGame(m){
+    p1.update();
+    p2.update();
 
-mode=m
-menu.style.display="none"
-game.style.display="block"
-
-applyCharacter(p1,document.getElementById("char1").value)
-applyCharacter(p2,document.getElementById("char2").value)
-
-reset()
-
+    requestAnimationFrame(gameLoop);
 }
 
-function applyCharacter(p,type){
-
-if(type==="power"){
-p.attack=15
-p.speed=2.5
-}
-
-if(type==="speed"){
-p.attack=8
-p.speed=4
-}
-
-if(type==="balanced"){
-p.attack=10
-p.speed=3
-}
-
-}
-
-function reset(){
-
-p1.dmg=0
-p2.dmg=0
-
-p1.x=150
-p2.x=700
-
-p1.vx=p1.vy=0
-p2.vx=p2.vy=0
-
-}
-
-function attack(a,b){
-
-const atk=document.createElement("div")
-atk.className="attack"
-
-let ax=a.x+a.dir*40
-
-atk.style.left=ax+"px"
-atk.style.bottom=(60+a.y)+"px"
-
-game.appendChild(atk)
-
-setTimeout(()=>atk.remove(),120)
-
-if(Math.abs(ax-b.x)<50 && Math.abs(a.y-b.y)<60){
-
-b.dmg+=a.attack
-
-let knock=(b.dmg/10)+4
-
-b.vx+=a.dir*knock
-b.vy+=knock*0.8
-
-comboSystem(a)
-
-}
-
-}
-
-function special(a,b){
-
-const sp=document.createElement("div")
-sp.className="special"
-
-let ax=a.x+a.dir*40
-
-sp.style.left=ax+"px"
-sp.style.bottom=(60+a.y)+"px"
-
-game.appendChild(sp)
-
-setTimeout(()=>sp.remove(),200)
-
-if(Math.abs(ax-b.x)<70 && Math.abs(a.y-b.y)<70){
-
-b.dmg+=25
-
-let knock=(b.dmg/6)+8
-
-b.vx+=a.dir*knock
-b.vy+=knock
-
-comboSystem(a)
-
-}
-
-}
-
-function comboSystem(p){
-
-let now=Date.now()
-
-if(now-p.lastHit<800){
-p.combo++
-}else{
-p.combo=1
-}
-
-p.lastHit=now
-
-if(p.combo>=2){
-document.getElementById("combo").innerText=
-p.combo+" COMBO!"
-setTimeout(()=>document.getElementById("combo").innerText="",700)
-}
-
-}
-
-function physics(p){
-
-p.x+=p.vx
-p.y+=p.vy
-
-p.vy-=0.5
-p.vx*=0.9
-
-if(p.y<0){
-p.y=0
-p.vy=0
-}
-
-}
-
-function draw(){
-
-p1.el.style.left=p1.x+"px"
-p1.el.style.bottom=(60+p1.y)+"px"
-
-p2.el.style.left=p2.x+"px"
-p2.el.style.bottom=(60+p2.y)+"px"
-
-}
-
-function controls(){
-
-if(keys["a"]){p1.vx=-p1.speed;p1.dir=-1}
-if(keys["d"]){p1.vx=p1.speed;p1.dir=1}
-if(keys["w"] && p1.y===0)p1.vy=10
-
-if(keys["f"])attack(p1,p2)
-if(keys["g"])special(p1,p2)
-
-if(mode==="p2"){
-
-if(keys["ArrowLeft"]){p2.vx=-p2.speed;p2.dir=-1}
-if(keys["ArrowRight"]){p2.vx=p2.speed;p2.dir=1}
-if(keys["ArrowUp"] && p2.y===0)p2.vy=10
-
-if(keys["/"])attack(p2,p1)
-if(keys["."])special(p2,p1)
-
-}
-
-}
-
-function ai(){
-
-if(mode!=="com")return
-
-if(p2.x<p1.x)p2.vx=2
-else p2.vx=-2
-
-if(Math.random()<0.01)p2.vy=10
-
-if(Math.abs(p1.x-p2.x)<60)attack(p2,p1)
-
-}
-
-function checkKO(){
-
-if(p1.y<-200){
-endGame("P2")
-}
-
-if(p2.y<-200){
-endGame("P1")
-}
-
-}
-
-function endGame(winner){
-
-document.getElementById("result").innerText=
-winner+" の勝利"
-
-setTimeout(()=>{
-reset()
-document.getElementById("result").innerText=""
-},3000)
-
-}
-
-function update(){
-
-controls()
-ai()
-
-physics(p1)
-physics(p2)
-
-draw()
-
-checkKO()
-
-document.getElementById("hp").innerText=
-"P1 "+Math.floor(p1.dmg)+"%   P2 "+Math.floor(p2.dmg)+"%"
-
-requestAnimationFrame(update)
-
-}
-
-update()
+// 開始
+gameLoop();
 
 </script>
-
 </body>
 </html>
