@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Browser Smash - Gun Balanced</title>
+    <title>Browser Smash - Item Warning</title>
     <style>
         body { margin: 0; background: #1a1a1a; color: white; font-family: sans-serif; text-align: center; overflow: hidden; }
         #menu, #result-screen {
@@ -36,6 +36,20 @@
         }
         .projectile { position: absolute; width: 16px; height: 16px; border-radius: 50%; box-shadow: 0 0 10px white; z-index: 15; }
         .item { position: absolute; width: 25px; height: 25px; border-radius: 5px; border: 2px solid #fff; z-index: 5; }
+        
+        /* アイテム警告表示のスタイル */
+        .item-warning { 
+            position: absolute; top: 10px; width: 30px; height: 30px; 
+            background: #ff4757; color: white; font-weight: bold; font-size: 20px;
+            border-radius: 50%; display: flex; justify-content: center; align-items: center;
+            animation: blink 0.3s infinite alternate; z-index: 20;
+        }
+        .item-guide-line {
+            position: absolute; top: 0; width: 2px; height: 100%;
+            background: rgba(255, 255, 255, 0.1); border-left: 1px dashed rgba(255, 71, 87, 0.5); z-index: 4;
+        }
+        @keyframes blink { from { opacity: 1; transform: scale(1); } to { opacity: 0.5; transform: scale(1.2); } }
+
         #overlay { position: absolute; top: 30%; left: 50%; transform: translate(-50%, -50%); font-size: 60px; font-weight: bold; color: #ff0; text-shadow: 3px 3px 0 #000; pointer-events: none; z-index: 100; }
     </style>
 </head>
@@ -135,21 +149,15 @@ class Fighter {
         document.getElementById(this.id+"-sub").innerText = "●".repeat(Math.max(0, this.stock));
         document.getElementById(this.id+"-sp").innerText = this.spReady ? "SP: READY" : "SP: CHARGING";
         
-        // 銃タイプ専用UI表示
         const ammoEl = document.getElementById(this.id+"-ammo");
         if(this.type === 'gun') {
             ammoEl.innerText = this.isReloading ? "RELOADING..." : `AMMO: ${this.ammo}/12`;
             ammoEl.style.color = this.isReloading ? "#ff4757" : "#00ffff";
-        } else {
-            ammoEl.innerText = "";
-        }
+        } else { ammoEl.innerText = ""; }
     }
     out() { this.stock--; if(this.stock <= 0) endGame(this.id==="p1"?"P2":"P1"); else { showEffect("K.O."); this.reset(false); } }
-    
     attack(target) {
         if(this.isAtk) return;
-        
-        // 銃のリロードチェック
         if(this.type === 'gun') {
             if(this.isReloading) return;
             if(this.ammo <= 0) {
@@ -158,10 +166,8 @@ class Fighter {
                 return;
             }
         }
-
         this.isAtk = true;
         this.dir = (target.x > this.x) ? 1 : -1;
-
         if(this.type === 'sword') {
             const sw = document.getElementById(this.id + "-sword");
             if(sw) sw.style.transform = "rotate(90deg)";
@@ -171,31 +177,14 @@ class Fighter {
         } else if(this.type === "fighter") {
             const range = 85;
             if(Math.abs(this.x - target.x) < range && Math.abs(this.y - target.y) < 65) this.hit(target, this.meleeP, 1.7);
-        } else {
-            this.fireProjectile(this.projP, this.projS);
-            this.ammo--;
-        }
+        } else { this.fireProjectile(this.projP, this.projS); this.ammo--; }
         setTimeout(()=>this.isAtk=false, this.cd);
     }
-
     fireProjectile(pwr, speed) {
-        // 弾に射程距離(dist)と発射位置(startX)を追加
-        const p = { 
-            x: this.x + (this.dir*30), 
-            startX: this.x,
-            y: this.y + 25, 
-            vx: this.dir*speed, 
-            owner: this, 
-            pwr, 
-            maxRange: 450, // 射程制限
-            el: document.createElement("div") 
-        };
-        p.el.className = "projectile"; 
-        p.el.style.background = (this.type==="sword"?"#00ffff":"#ffff00");
-        document.getElementById("game-stage").appendChild(p.el); 
-        projectiles.push(p);
+        const p = { x: this.x + (this.dir*30), startX: this.x, y: this.y + 25, vx: this.dir*speed, owner: this, pwr, maxRange: 450, el: document.createElement("div") };
+        p.el.className = "projectile"; p.el.style.background = (this.type==="sword"?"#00ffff":"#ffff00");
+        document.getElementById("game-stage").appendChild(p.el); projectiles.push(p);
     }
-
     useSP(target) {
         if(!this.spReady) return; this.spReady = false; showEffect("ULTIMATE SP!");
         if(this.type === "fighter") { this.vx = this.dir * 42; setTimeout(()=> { if(Math.abs(this.x-target.x)<120) this.hit(target,38,2.8); }, 150); }
@@ -203,7 +192,6 @@ class Fighter {
         else { for(let i=0;i<16;i++) setTimeout(()=>this.fireProjectile(7,28), i*50); }
         setTimeout(()=>this.spReady=true, 10000);
     }
-
     hit(target, pwr, kbM) {
         if(target.isInvincible) return; target.damage += pwr;
         const kb = ((target.damage / 5) + 10) * kbM;
@@ -257,8 +245,6 @@ function loop() {
         const lvl = parseInt(document.getElementById("com-lvl").value);
         let diff = p1.x - p2.x; let dist = Math.abs(diff);
         if(dist > (p2.type==="gun" ? 250 : 40)) p2.vx += (diff > 0 ? 0.25 + lvl*0.12 : -0.25 - lvl*0.12);
-        
-        // COMの攻撃ロジック（リロード中以外）
         if(dist < 500 && Math.random() < 0.02 * lvl) p2.attack(p1);
         if(lvl >= 4 && p2.spReady && dist < 350 && Math.random() < 0.08) p2.useSP(p1);
         if((p2.y <= 120 && Math.random() < 0.05 * lvl) || p2.y < 50) { p2.vy = 12.8; p2.jumps++; }
@@ -268,35 +254,57 @@ function loop() {
     projectiles.forEach((p, i) => {
         p.x += p.vx; p.el.style.left = p.x+"px"; p.el.style.bottom = p.y+"px";
         let target = p.owner === p1 ? p2 : p1;
-        
-        // 当たり判定
         if(Math.abs(p.x-target.x)<35 && Math.abs(p.y-(target.y+30))<40) {
             if(!target.isInvincible) p.owner.hit(target, p.pwr, 1.0);
             p.el.remove(); projectiles.splice(i, 1);
-        } 
-        // 画面外または射程距離(maxRange)を超えたら消滅
-        else if(p.x < -400 || p.x > 1500 || Math.abs(p.x - p.startX) > p.maxRange) { 
+        } else if(p.x < -400 || p.x > 1500 || Math.abs(p.x - p.startX) > p.maxRange) { 
             p.el.remove(); projectiles.splice(i, 1); 
         }
     });
 
+    // アイテムシステム（警告表示付き）
     if(document.getElementById("item-spawn").value === "on" && Math.random() < 0.004) {
         const type = Math.random() > 0.6 ? "heal" : "bomb";
-        const it = { x: 100 + Math.random()*900, y: 650, vy: 0, type, el: document.createElement("div") };
+        const spawnX = 100 + Math.random()*900;
+        const it = { 
+            x: spawnX, y: 750, vy: 0, type, 
+            el: document.createElement("div"),
+            warnEl: document.createElement("div"),
+            guideEl: document.createElement("div")
+        };
         it.el.className = "item"; it.el.style.background = type === "heal" ? "#2ecc71" : "#ff4757";
-        document.getElementById("game-stage").appendChild(it.el); items.push(it);
+        
+        // 警告マーク
+        it.warnEl.className = "item-warning"; it.warnEl.innerText = "!"; it.warnEl.style.left = (spawnX - 2) + "px";
+        // 落下ガイドライン
+        it.guideEl.className = "item-guide-line"; it.guideEl.style.left = (spawnX + 12) + "px";
+
+        const stage = document.getElementById("game-stage");
+        stage.appendChild(it.el); stage.appendChild(it.warnEl); stage.appendChild(it.guideEl);
+        items.push(it);
     }
     items.forEach((it, i) => {
-        it.vy -= 0.2; it.y += it.vy;
+        it.vy -= 0.15; it.y += it.vy;
         it.el.style.left = it.x+"px"; it.el.style.bottom = it.y+"px";
+        
+        // 画面内(y < 600)に入ったら警告を消す
+        if(it.y < 580) {
+            if(it.warnEl) { it.warnEl.remove(); it.warnEl = null; }
+            if(it.guideEl) { it.guideEl.remove(); it.guideEl = null; }
+        }
+
         [p1, p2].forEach(p => {
             if(Math.abs(p.x-it.x)<40 && Math.abs(p.y-it.y)<50) {
                 if(it.type === "heal") { p.damage = Math.max(0, p.damage - 25); showEffect("HEAL!"); }
                 else { p.damage += 35; p.vx = (p.x < it.x ? -25 : 25); p.vy = 15; showEffect("BOOM!"); }
-                it.el.remove(); items.splice(i, 1);
+                it.el.remove(); if(it.warnEl) it.warnEl.remove(); if(it.guideEl) it.guideEl.remove();
+                items.splice(i, 1);
             }
         });
-        if(it.y < -100) { it.el.remove(); items.splice(i, 1); }
+        if(it.y < -100) { 
+            it.el.remove(); if(it.warnEl) it.warnEl.remove(); if(it.guideEl) it.guideEl.remove();
+            items.splice(i, 1); 
+        }
     });
     requestAnimationFrame(loop);
 }
