@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Browser Smash - True God AI (Jump Fixed)</title>
+    <title>Browser Smash - True God AI (Final Fixed)</title>
     <style>
         body { margin: 0; background: #1a1a1a; color: white; font-family: sans-serif; text-align: center; overflow: hidden; }
         #menu, #result-screen {
@@ -176,41 +176,55 @@ function loop() {
     if(!isRunning) return;
     if(keys[p1.controls.left]) { p1.vx -= 0.85; p1.dir = -1; } if(keys[p1.controls.right]) { p1.vx += 0.85; p1.dir = 1; }
     
-    // 改良版 COMロジック (ジャンプ回数2回厳守)
+    // 改良版 COMロジック: 全レベルで「復帰優先」を徹底
     if(mode==="com") {
         const lvl = parseInt(document.getElementById("com-lvl").value);
         let dist = Math.abs(p1.x - p2.x);
-        const stageLeft = 180, stageRight = 920;
-        const isOutside = p2.x < stageLeft || p2.x > stageRight;
+        
+        // メインステージの範囲
+        const stageLeft = 200, stageRight = 900;
+        const safetyMargin = 30; 
+        const isOutside = p2.x < stageLeft + safetyMargin || p2.x > stageRight - safetyMargin;
 
-        // 1. 復帰・自滅防止
         if (isOutside) {
-            // ステージの方向へ向かう（最短ルート）
-            p2.vx += (p2.x < 550 ? 0.7 : -0.7);
-            // 落下しそうな時だけ復帰ジャンプ（最大2回まで）
-            if (p2.y < 200 && p2.vy < 0 && p2.jumps < 2) {
-                p2.vy = 12.5; p2.jumps++;
+            // 1. 【復帰モード】戦闘を停止し、中央へ戻る
+            p2.vx += (p2.x < 550 ? 0.8 : -0.8);
+            
+            // 落下しているときのみ、かつ一定の高さ以下ならジャンプ
+            if (p2.vy < -1 && p2.jumps < 2) {
+                if (p2.y < 180) { // ステージの床より少し高い位置を目標にする
+                    p2.vy = 12.5; p2.jumps++;
+                }
             }
         } else {
-            // 2. 画面内での戦闘知能
-            // 回避ジャンプ（飛び道具が来た時など）
-            if (lvl >= 8 && projectiles.some(p => p.owner === p1 && Math.abs(p.x - p2.x) < 120)) {
-                if(p2.jumps < 2 && Math.random() < 0.5) { p2.vy = 11; p2.jumps++; }
+            // 2. 【戦闘モード】ステージ内にいるときの知能
+            
+            // 回避：飛び道具が近い場合
+            if (lvl >= 5 && projectiles.some(p => p.owner === p1 && Math.abs(p.x - p2.x) < 110)) {
+                if(p2.jumps < 2 && Math.random() < (0.05 * lvl)) { p2.vy = 10.5; p2.jumps++; }
             }
             
-            // プレイヤーを追いかける、または銃の間合いを保つ
-            let targetX = p1.x + (p2.type === "gun" ? (p1.x > p2.x ? -300 : 300) : (p1.x > p2.x ? -30 : 30));
-            p2.vx += (p2.x < targetX ? 0.3 + lvl*0.1 : -0.3 - lvl*0.1);
+            // 間合い管理：プレイヤーが場外なら追いかけない（崖待ち）
+            let targetX = p1.x;
+            if (p1.x < stageLeft || p1.x > stageRight) {
+                targetX = (p1.x < stageLeft) ? stageLeft + 60 : stageRight - 60;
+            } else {
+                targetX = p1.x + (p2.type === "gun" ? (p1.x > p2.x ? -280 : 280) : (p1.x > p2.x ? -25 : 25));
+            }
+            
+            p2.vx += (p2.x < targetX ? 0.35 + lvl*0.08 : -0.35 - lvl*0.08);
 
-            // アイテム奪取
-            if(lvl >= 5 && items.length > 0) { let it = items[0]; p2.vx += (p2.x < it.x ? 0.6 : -0.6); }
+            // アイテム奪取（場内のもの限定）
+            if(lvl >= 5 && items.length > 0) { 
+                let it = items[0]; 
+                if (it.x > stageLeft && it.x < stageRight) {
+                    p2.vx += (p2.x < it.x ? 0.6 : -0.6); 
+                }
+            }
 
-            // 攻撃
-            if(dist < (p2.type==="gun"?550:120) && Math.random() < (0.015 * lvl)) p2.attack(p1);
-            if(lvl >= 5 && p2.spReady && dist < 400 && Math.random() < 0.1) p2.useSP(p1);
-
-            // 崖際耐久（画面外ジャンプ）をしない仕組み
-            // 空中ジャンプを無意味に使わず、足場に降りることを優先する
+            // 攻撃実行
+            if(dist < (p2.type==="gun"?550:115) && Math.random() < (0.014 * lvl)) p2.attack(p1);
+            if(lvl >= 5 && p2.spReady && dist < 380 && Math.random() < 0.1) p2.useSP(p1);
         }
     } else {
         if(keys[p2.controls.left]) { p2.vx -= 0.85; p2.dir = -1; } if(keys[p2.controls.right]) { p2.vx += 0.85; p2.dir = 1; }
@@ -228,7 +242,7 @@ function loop() {
     if(document.getElementById("item-spawn").value === "on" && Math.random() < 0.005) {
         const isBomb = Math.random() < 0.66;
         const type = isBomb ? "bomb" : "heal";
-        const spawnX = 100 + Math.random()*900;
+        const spawnX = 150 + Math.random()*800;
         const it = { x: spawnX, y: 750, vy: 0, type, el: document.createElement("div"), warnEl: document.createElement("div"), guideEl: document.createElement("div") };
         it.el.className = "item";
         if(isBomb) { it.el.style.background = "#ff4757"; it.el.innerText = "!"; } else { it.el.style.background = "#2ecc71"; it.el.innerText = "+"; }
