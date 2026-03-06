@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>Mini Smash</title>
+<style>
+body{
+  margin:0;
+  background:#222;
+  overflow:hidden;
+  font-family:sans-serif;
+}
+#game{
+  position:relative;
+  width:900px;
+  height:500px;
+  margin:20px auto;
+  background:linear-gradient(#87ceeb,#e0f7ff);
+  border:4px solid black;
+}
+.platform{
+  position:absolute;
+  bottom:50px;
+  width:100%;
+  height:20px;
+  background:#444;
+}
+.player{
+  position:absolute;
+  width:40px;
+  height:60px;
+}
+#p1{background:red;}
+#p2{background:blue;}
+.ui{
+  color:white;
+  text-align:center;
+}
+</style>
+</head>
+<body>
+
+<div class="ui">
+<h2>Mini Smash (矢印キー + / A,D,W,F)</h2>
+<div id="hp"></div>
+</div>
+
+<div id="game">
+<div class="platform"></div>
+<div id="p1" class="player"></div>
+<div id="p2" class="player"></div>
+</div>
+
+<script>
+const game=document.getElementById("game")
+
+const p1={
+  el:document.getElementById("p1"),
+  x:100,y:0,vx:0,vy:0,
+  hp:100
+}
+
+const p2={
+  el:document.getElementById("p2"),
+  x:700,y:0,vx:0,vy:0,
+  hp:100
+}
+
+const keys={}
+
+document.addEventListener("keydown",e=>keys[e.key]=true)
+document.addEventListener("keyup",e=>keys[e.key]=false)
+
+function attack(attacker,defender){
+  const dist=Math.abs(attacker.x-defender.x)
+  if(dist<60 && Math.abs(attacker.y-defender.y)<60){
+    defender.hp-=10
+    defender.vx+= (defender.x>attacker.x?5:-5)
+  }
+}
+
+function update(){
+  // p1 controls
+  if(keys["a"]) p1.vx=-3
+  if(keys["d"]) p1.vx=3
+  if(keys["w"] && p1.y===0) p1.vy=10
+  if(keys["f"]) attack(p1,p2)
+
+  // p2 controls
+  if(keys["ArrowLeft"]) p2.vx=-3
+  if(keys["ArrowRight"]) p2.vx=3
+  if(keys["ArrowUp"] && p2.y===0) p2.vy=10
+  if(keys["/"]) attack(p2,p1)
+
+  physics(p1)
+  physics(p2)
+
+  draw()
+
+  document.getElementById("hp").innerText=
+  "P1 HP:"+p1.hp+"   P2 HP:"+p2.hp
+
+  requestAnimationFrame(update)
+}
+
+function physics(p){
+  p.x+=p.vx
+  p.y+=p.vy
+  p.vy-=0.5
+
+  if(p.y<0){
+    p.y=0
+    p.vy=0
+  }
+
+  p.vx*=0.8
+
+  if(p.x<0)p.x=0
+  if(p.x>860)p.x=860
+}
+
+function draw(){
+  p1.el.style.left=p1.x+"px"
+  p1.el.style.bottom=(70+p1.y)+"px"
+
+  p2.el.style.left=p2.x+"px"
+  p2.el.style.bottom=(70+p2.y)+"px"
+}
+
+update()
+</script>
+
+</body>
+</html>
