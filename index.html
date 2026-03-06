@@ -2,22 +2,22 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Browser Smash - Simplified Custom</title>
+    <title>Browser Smash - Auto Key Bind</title>
     <style>
         body { margin: 0; background: #1a1a1a; color: white; font-family: sans-serif; text-align: center; overflow: hidden; }
         #menu, #result-screen {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
             background: #1a1a1a; z-index: 1000; display: flex; flex-direction: column; justify-content: center; align-items: center;
-            overflow-y: auto; padding: 20px;
         }
-        .config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; background: #333; padding: 20px; border-radius: 15px; margin: 10px; text-align: left; }
-        select, input { padding: 8px; font-size: 14px; border-radius: 5px; border: none; }
-        .key-input { width: 80px; background: #fff; color: #333; font-weight: bold; text-align: center; }
-        button { background: #ff4757; color: white; cursor: pointer; font-size: 20px; padding: 15px 40px; border: none; border-radius: 8px; margin: 10px; }
-        
+        .config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; background: #333; padding: 30px; border-radius: 15px; margin: 10px; text-align: left; }
+        select { padding: 10px; font-size: 16px; border-radius: 5px; border: none; width: 150px; cursor: pointer; }
+        button { background: #ff4757; color: white; cursor: pointer; font-size: 22px; padding: 15px 50px; border: none; border-radius: 8px; margin: 15px; transition: 0.2s; }
+        button:hover { background: #ff6b81; transform: scale(1.05); }
+
         #game-container { display: none; }
         #ui-container { margin-top: 10px; display: flex; justify-content: center; gap: 30px; }
-        .status-card { background: rgba(0,0,0,0.8); padding: 10px; border-radius: 10px; border: 2px solid #444; min-width: 180px; }
+        .status-card { background: rgba(0,0,0,0.8); padding: 15px; border-radius: 10px; border: 2px solid #444; min-width: 200px; }
+        .damage-percent { font-size: 40px; font-weight: bold; margin: 5px 0; }
         
         #game-stage {
             width: 1000px; height: 500px; margin: 10px auto;
@@ -31,7 +31,6 @@
         .weapon { position: absolute; top: 30px; width: 25px; height: 5px; background: #888; display: none; }
         .type-sword .weapon { display: block; background: #00ffff; width: 30px; transform: rotate(-20deg); right: -15px; }
         .type-gun .weapon { display: block; background: #333; width: 15px; height: 10px; right: -10px; }
-
         .projectile { position: absolute; width: 15px; height: 15px; border-radius: 50%; box-shadow: 0 0 10px white; }
         #overlay { position: absolute; top: 30%; left: 50%; transform: translate(-50%, -50%); font-size: 70px; font-weight: bold; color: #ff0; text-shadow: 4px 4px 0 #000; pointer-events: none; z-index: 100; }
     </style>
@@ -39,50 +38,40 @@
 <body>
 
     <div id="menu">
-        <h1 style="color: #ff4757;">BROWSER SMASH - KEY CONFIG</h1>
-        
+        <h1 style="color: #ff4757; font-size: 45px;">BROWSER SMASH</h1>
         <div class="config-grid">
-            <strong>【共通設定】</strong><div></div>
-            <span>COMレベル:</span>
-            <select id="com-lvl"><option value="1">Lv.1</option><option value="2">Lv.2</option><option value="3">Lv.3</option></select>
+            <strong>【Player 1 (Blue)】</strong>
+            <strong>【Player 2 (Red)】</strong>
             
-            <strong>【Player 1 設定】</strong><div></div>
-            <span>タイプ:</span>
-            <select id="type1"><option value="fighter">格闘</option><option value="sword">剣</option><option value="gun">銃</option></select>
-            <span>移動操作:</span>
-            <select id="p1-move-style"><option value="wasd">WASD キー</option><option value="arrow">矢印 キー</option></select>
-            <span>攻撃ボタン (通常/弾/強):</span>
-            <div><input id="p1-A" class="key-input" value="KeyF"> <input id="p1-P" class="key-input" value="KeyG"> <input id="p1-S" class="key-input" value="KeyV"></div>
-
-            <strong>【Player 2 設定】</strong><div></div>
-            <span>タイプ:</span>
-            <select id="type2"><option value="fighter">格闘</option><option value="sword" selected>剣</option><option value="gun">銃</option></select>
-            <span>移動操作:</span>
-            <select id="p2-move-style"><option value="arrow" selected>矢印 キー</option><option value="wasd">WASD キー</option></select>
-            <span>攻撃ボタン (通常/弾/強):</span>
-            <div><input id="p2-A" class="key-input" value="Slash"> <input id="p2-P" class="key-input" value="Period"> <input id="p2-S" class="key-input" value="Comma"></div>
+            <div>タイプ: <select id="type1"><option value="fighter">格闘</option><option value="sword">剣</option><option value="gun">銃</option></select></div>
+            <div>タイプ: <select id="type2"><option value="fighter">格闘</option><option value="sword" selected>剣</option><option value="gun">銃</option></select></div>
+            
+            <div>操作系: <select id="style1"><option value="wasd">WASD (攻:G)</option><option value="arrow">矢印 (攻:,)</option></select></div>
+            <div>操作系: <select id="style2"><option value="arrow" selected>矢印 (攻:,)</option><option value="wasd">WASD (攻:G)</option></select></div>
         </div>
-
-        <button onclick="startGame('com')">1P vs COM</button>
-        <button onclick="startGame('p2')">1P vs 2P</button>
+        <div>
+            <span style="margin-right: 15px;">COM Lv: <select id="com-lvl"><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option></select></span>
+            <button onclick="startGame('com')">vs COM</button>
+            <button onclick="startGame('p2')">vs 2P</button>
+        </div>
     </div>
 
     <div id="result-screen" style="display:none;">
-        <h1 id="winner-text"></h1>
-        <button onclick="location.reload()">タイトルに戻る</button>
+        <h1 id="winner-text" style="font-size: 60px;"></h1>
+        <button onclick="location.reload()">再挑戦</button>
     </div>
 
     <div id="game-container">
         <div id="ui-container">
             <div class="status-card">
-                <div id="p1-info">P1</div>
-                <div id="p1-val" style="font-size: 35px; font-weight: bold;">0%</div>
-                <div id="p1-sub" style="color:#ff4757">●●●</div>
+                <div id="p1-tag">P1</div>
+                <div id="p1-val" class="damage-percent">0%</div>
+                <div id="p1-sub" style="color:#ff4757; font-size: 20px;">●●●</div>
             </div>
             <div class="status-card">
-                <div id="p2-info">P2</div>
-                <div id="p2-val" style="font-size: 35px; font-weight: bold;">0%</div>
-                <div id="p2-sub" style="color:#ff4757">●●●</div>
+                <div id="p2-tag">P2</div>
+                <div id="p2-val" class="damage-percent">0%</div>
+                <div id="p2-sub" style="color:#ff4757; font-size: 20px;">●●●</div>
             </div>
         </div>
         <div id="game-stage">
@@ -97,10 +86,10 @@
 const GRAVITY = 0.45, FRICTION = 0.88, GROUND_Y = 100;
 let mode = "p2", isRunning = false, projectiles = [], keys = {};
 
-// 移動キーの定義
-const KEY_MAPS = {
-    wasd: { up: "KeyW", left: "KeyA", right: "KeyD" },
-    arrow: { up: "ArrowUp", left: "ArrowLeft", right: "ArrowRight" }
+// キー設定の定義
+const CONTROL_CONFIGS = {
+    wasd: { up: "KeyW", left: "KeyA", right: "KeyD", atk: "KeyG", proj: "KeyH" },
+    arrow: { up: "ArrowUp", left: "ArrowLeft", right: "ArrowRight", atk: "Comma", proj: "Period" }
 };
 
 class Fighter {
@@ -113,7 +102,10 @@ class Fighter {
         this.x = this.startX; this.y = 350; this.vx = 0; this.vy = 0; this.damage = 0;
         this.dir = (this.x < 500) ? 1 : -1; this.jumps = 0; this.isAtk = false;
         
-        // 1秒間の無敵
+        // 操作セットの取得
+        this.controls = CONTROL_CONFIGS[document.getElementById(this.id==="p1"?"style1":"style2").value];
+        
+        // スポーン無敵
         this.isInvincible = true; this.el.classList.add("invincible");
         setTimeout(() => { this.isInvincible = false; this.el.classList.remove("invincible"); }, 1000);
 
@@ -133,7 +125,7 @@ class Fighter {
         if (this.x+30 > 200 && this.x < 770 && this.y <= GROUND_Y && this.vy <= 0 && this.y > GROUND_Y-30) {
             this.y = GROUND_Y; this.vy = 0; this.jumps = 0;
         }
-        if (this.x < -100 || this.x > 1100 || this.y < -150 || this.y > 800) this.out();
+        if (this.x < -150 || this.x > 1150 || this.y < -200 || this.y > 900) this.out();
         this.draw();
     }
     draw() {
@@ -144,7 +136,7 @@ class Fighter {
     }
     out() {
         this.stock--;
-        if(this.stock <= 0) endGame(this.id==="p1"?"P2":"P1"); else { showEffect("K.O."); this.reset(false); }
+        if(this.stock <= 0) endGame(this.id==="p1"?"PLAYER 2":"PLAYER 1"); else { showEffect("K.O."); this.reset(false); }
     }
     attack(target, isProj) {
         if(this.isAtk) return; this.isAtk = true;
@@ -153,16 +145,16 @@ class Fighter {
             p.el.className = "projectile"; p.el.style.background = (this.type==="sword"?"#00ffff":"#ffff00");
             document.getElementById("game-stage").appendChild(p.el); projectiles.push(p);
         } else {
-            const range = (this.type==="sword"?80:55);
-            if(Math.abs((this.x+(this.dir*25))-target.x)<range && Math.abs(this.y-target.y)<50) this.hit(target, this.meleeP, this.type==="fighter"?1.4:1);
+            const range = (this.type==="sword"?85:60);
+            if(Math.abs((this.x+(this.dir*25))-target.x)<range && Math.abs(this.y-target.y)<50) this.hit(target, this.meleeP, this.type==="fighter"?1.5:1);
         }
         setTimeout(()=>this.isAtk=false, isProj ? this.cd : 300);
     }
     hit(target, pwr, kbM) {
         if(target.isInvincible) return;
         target.damage += pwr;
-        const kb = ((target.damage / 6) + 6) * kbM * (target.damage > 200 ? 2.5 : 1);
-        target.vx = this.dir * kb; target.vy = kb * 0.3 + 3;
+        const kb = ((target.damage / 6) + 7) * kbM * (target.damage > 200 ? 2.5 : 1);
+        target.vx = this.dir * kb; target.vy = kb * 0.3 + 4;
     }
 }
 
@@ -179,18 +171,16 @@ window.addEventListener("keydown", e => {
     keys[e.code] = true;
     if(!isRunning) return;
 
-    // P1 操作判定
-    const p1Map = KEY_MAPS[document.getElementById("p1-move-style").value];
-    if(e.code === p1Map.up && p1.jumps < 2) { p1.vy=11; p1.jumps++; }
-    if(e.code === document.getElementById("p1-A").value) p1.attack(p2, false);
-    if(e.code === document.getElementById("p1-P").value) p1.attack(p2, true);
+    // P1 入力
+    if(e.code === p1.controls.up && p1.jumps < 2) { p1.vy=12; p1.jumps++; }
+    if(e.code === p1.controls.atk) p1.attack(p2, false);
+    if(e.code === p1.controls.proj) p1.attack(p2, true);
 
-    // P2 操作判定
+    // P2 入力
     if(mode==="p2") {
-        const p2Map = KEY_MAPS[document.getElementById("p2-move-style").value];
-        if(e.code === p2Map.up && p2.jumps < 2) { p2.vy=11; p2.jumps++; }
-        if(e.code === document.getElementById("p2-A").value) p2.attack(p1, false);
-        if(e.code === document.getElementById("p2-P").value) p2.attack(p1, true);
+        if(e.code === p2.controls.up && p2.jumps < 2) { p2.vy=12; p2.jumps++; }
+        if(e.code === p2.controls.atk) p2.attack(p1, false);
+        if(e.code === p2.controls.proj) p2.attack(p1, true);
     }
 });
 window.addEventListener("keyup", e => keys[e.code] = false);
@@ -199,20 +189,18 @@ function loop() {
     if(!isRunning) return;
 
     // P1 移動
-    const p1Map = KEY_MAPS[document.getElementById("p1-move-style").value];
-    if(keys[p1Map.left]) { p1.vx -= 0.8; p1.dir = -1; }
-    if(keys[p1Map.right]) { p1.vx += 0.8; p1.dir = 1; }
+    if(keys[p1.controls.left]) { p1.vx -= 0.8; p1.dir = -1; }
+    if(keys[p1.controls.right]) { p1.vx += 0.8; p1.dir = 1; }
 
-    // P2 移動
+    // P2 / COM 移動
     if(mode==="p2") {
-        const p2Map = KEY_MAPS[document.getElementById("p2-move-style").value];
-        if(keys[p2Map.left]) { p2.vx -= 0.8; p2.dir = -1; }
-        if(keys[p2Map.right]) { p2.vx += 0.8; p2.dir = 1; }
+        if(keys[p2.controls.left]) { p2.vx -= 0.8; p2.dir = -1; }
+        if(keys[p2.controls.right]) { p2.vx += 0.8; p2.dir = 1; }
     } else {
         let diff = p1.x - p2.x, lvl = parseInt(document.getElementById("com-lvl").value);
         if(Math.abs(diff) > (p2.type==="gun"?300:60)) { p2.vx += (diff>0?0.2: -0.2)*lvl; p2.dir = diff>0?1:-1; }
         if(Math.abs(diff) < 400 && Math.random() < 0.02 * lvl) p2.attack(p1, Math.abs(diff) > 100);
-        if(p2.y <= GROUND_Y && Math.random() < 0.05) { p2.vy = 11; p2.jumps++; }
+        if(p2.y <= GROUND_Y && Math.random() < 0.05) { p2.vy = 12; p2.jumps++; }
     }
 
     p1.update(); p2.update();
@@ -223,7 +211,7 @@ function loop() {
         if(Math.abs(p.x-target.x)<30 && Math.abs(p.y-(target.y+30))<30) {
             if(!target.isInvincible) p.owner.hit(target, p.pwr, 0.8);
             p.el.remove(); projectiles.splice(i, 1);
-        } else if(p.x < 0 || p.x > 1000) { p.el.remove(); projectiles.splice(i, 1); }
+        } else if(p.x < -100 || p.x > 1100) { p.el.remove(); projectiles.splice(i, 1); }
     });
     requestAnimationFrame(loop);
 }
