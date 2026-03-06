@@ -2,63 +2,73 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Browser Smash DX - Ultimate Custom</title>
+    <title>Browser Smash ULTIMATE - Custom Edition</title>
     <style>
         body { margin: 0; background: #1a1a1a; color: white; font-family: sans-serif; text-align: center; overflow: hidden; }
         #menu, #result-screen {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
             background: #1a1a1a; z-index: 1000; display: flex; flex-direction: column; justify-content: center; align-items: center;
+            overflow-y: auto; padding: 20px;
         }
-        .config-box { background: #333; padding: 20px; border-radius: 15px; margin: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: left; }
-        select, button { padding: 10px; font-size: 16px; border-radius: 5px; border: none; }
-        button { background: #ff4757; color: white; cursor: pointer; font-size: 20px; padding: 15px 40px; }
+        .config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; background: #333; padding: 20px; border-radius: 15px; margin: 10px; text-align: left; max-width: 800px; }
+        select, input { padding: 5px; font-size: 14px; border-radius: 4px; width: 80px; }
+        button { background: #ff4757; color: white; cursor: pointer; font-size: 20px; padding: 15px 40px; border: none; border-radius: 8px; margin: 10px; }
         button:hover { background: #ff6b81; }
 
         #game-container { display: none; }
         #ui-container { margin-top: 10px; display: flex; justify-content: center; gap: 30px; }
         .status-card { background: rgba(0,0,0,0.8); padding: 10px; border-radius: 10px; border: 2px solid #444; min-width: 180px; }
         .damage-percent { font-size: 40px; font-weight: bold; }
-        .stock-label { color: #ff4757; font-size: 20px; }
-
+        
         #game-stage {
-            width: 1000px; height: 550px; margin: 10px auto;
+            width: 1000px; height: 500px; margin: 10px auto;
             background: linear-gradient(to bottom, #1e3c72, #2a5298);
             border: 5px solid #000; position: relative; overflow: hidden;
         }
-        .main-platform { position: absolute; left: 200px; bottom: 120px; width: 600px; height: 30px; background: #444; border-bottom: 8px solid #222; }
-        
+        .main-platform { position: absolute; left: 200px; bottom: 100px; width: 600px; height: 30px; background: #444; border-bottom: 8px solid #222; }
         .player { position: absolute; width: 40px; height: 60px; z-index: 10; }
-        .player-label { position: absolute; top: -35px; left: 50%; transform: translateX(-50%); font-weight: bold; background: rgba(0,0,0,0.5); padding: 2px 5px; border-radius: 3px; }
-        .head { width: 24px; height: 24px; background: #ffd1a4; border-radius: 50%; margin: 0 auto; border: 2px solid #000; }
-        .body { width: 22px; height: 32px; margin: -2px auto; border: 2px solid #000; border-radius: 5px; }
+        .player-label { position: absolute; top: -35px; left: 50%; transform: translateX(-50%); font-weight: bold; background: rgba(0,0,0,0.5); padding: 2px 5px; border-radius: 3px; font-size: 12px; }
         
-        .item { position: absolute; width: 30px; height: 30px; border-radius: 5px; border: 2px solid white; animation: pulse 0.5s infinite alternate; }
-        @keyframes pulse { from { transform: scale(1); } to { transform: scale(1.1); } }
+        /* 飛び道具（剣撃） */
+        .projectile { position: absolute; width: 40px; height: 15px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px white; }
         
-        #overlay { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); font-size: 80px; font-weight: bold; color: #ff0; text-shadow: 4px 4px 0 #000; pointer-events: none; z-index: 100; }
+        .item { position: absolute; width: 25px; height: 25px; border-radius: 5px; border: 2px solid white; animation: pulse 0.5s infinite alternate; }
+        @keyframes pulse { from { transform: scale(1); } to { transform: scale(1.2); } }
+        #overlay { position: absolute; top: 30%; left: 50%; transform: translate(-50%, -50%); font-size: 70px; font-weight: bold; color: #ff0; text-shadow: 4px 4px 0 #000; pointer-events: none; z-index: 100; }
     </style>
 </head>
 <body>
 
     <div id="menu">
-        <h1 style="color: #ff4757;">BROWSER SMASH ULTIMATE</h1>
-        <div class="config-box">
-            <span>P1 キャラ:</span>
-            <select id="char1"><option value="balanced">バランス</option><option value="power">パワー</option><option value="speed">スピード</option></select>
-            <span>P2 キャラ:</span>
-            <select id="char2"><option value="balanced">バランス</option><option value="power">パワー</option><option value="speed">スピード</option></select>
-            <span>ルール:</span>
-            <select id="rule-mode"><option value="stock">ストック制 (3機)</option><option value="hp">HP制 (200HP)</option></select>
+        <h1 style="color: #ff4757; margin: 10px;">BROWSER SMASH ULTIMATE</h1>
+        
+        <div class="config-grid">
+            <strong colspan="2">【基本設定】</strong><div></div>
+            <span>ルール / アイテム:</span>
+            <div>
+                <select id="rule-mode"><option value="stock">ストック(3)</option><option value="hp">HP制(200)</option></select>
+                <select id="item-toggle"><option value="on">アイテムON</option><option value="off">アイテムOFF</option></select>
+            </div>
             <span>COMレベル:</span>
-            <select id="com-lvl"><option value="1">Lv.1 (弱い)</option><option value="2">Lv.2 (普通)</option><option value="3">Lv.3 (強い)</option></select>
+            <select id="com-lvl"><option value="1">Lv.1</option><option value="2">Lv.2</option><option value="3">Lv.3</option></select>
+
+            <strong colspan="2">【操作設定 (キーコード入力)】</strong><div></div>
+            <span>P1 攻撃 / 弾 / 強:</span>
+            <div><input id="p1-atk-key" value="KeyF"> <input id="p1-proj-key" value="KeyG"> <input id="p1-sp-key" value="KeyV"></div>
+            <span>P2 攻撃 / 弾 / 強:</span>
+            <div><input id="p2-atk-key" value="Slash"> <input id="p2-proj-key" value="Period"> <input id="p2-sp-key" value="Comma"></div>
         </div>
-        <button onclick="startGame('com')">1P vs COM</button>
-        <button onclick="startGame('p2')">1P vs 2P</button>
+
+        <div>
+            <button onclick="startGame('com')">1P vs COM</button>
+            <button onclick="startGame('p2')">1P vs 2P</button>
+        </div>
+        <p style="font-size: 12px; color: #ccc;">※P1移動:WASD, P2移動:矢印キー</p>
     </div>
 
     <div id="result-screen" style="display:none;">
         <h1 id="winner-text" style="font-size: 60px;"></h1>
-        <button onclick="location.reload()">タイトルに戻る</button>
+        <button onclick="location.reload()">メニューに戻る</button>
     </div>
 
     <div id="game-container">
@@ -66,12 +76,12 @@
             <div class="status-card">
                 <div id="p1-tag">PLAYER 1</div>
                 <div id="p1-val" class="damage-percent">0%</div>
-                <div id="p1-sub" class="stock-label">●●●</div>
+                <div id="p1-sub" style="color:#ff4757">●●●</div>
             </div>
             <div class="status-card">
                 <div id="p2-tag">PLAYER 2</div>
                 <div id="p2-val" class="damage-percent">0%</div>
-                <div id="p2-sub" class="stock-label">●●●</div>
+                <div id="p2-sub" style="color:#ff4757">●●●</div>
             </div>
         </div>
         <div id="game-stage">
@@ -83,8 +93,9 @@
     </div>
 
 <script>
-const GRAVITY = 0.5, FRICTION = 0.85, GROUND_Y = 120;
-let mode = "p2", rule = "stock", comLvl = 1, isRunning = false, items = [];
+const GRAVITY = 0.45, FRICTION = 0.88, GROUND_Y = 100;
+let mode = "p2", rule = "stock", itemOn = true, isRunning = false;
+let projectiles = [], items = [], keys = {};
 
 class Fighter {
     constructor(id, x, color, label) {
@@ -95,17 +106,11 @@ class Fighter {
         if(full) { this.stock = 3; this.hp = 200; }
         this.x = this.startX; this.y = 400; this.vx = 0; this.vy = 0; this.damage = 0;
         this.dir = (this.x < 500) ? 1 : -1; this.jumps = 0; this.isAtk = false;
-        this.updateType();
-    }
-    updateType() {
-        const type = document.getElementById(this.id==="p1"?"char1":"char2").value;
-        const conf = {power:[1.6, 0.6, "#f1c40f"], speed:[0.7, 1.3, "#2ecc71"], balanced:[1, 0.9, this.color]}[type];
-        this.atkP = conf[0]; this.spd = conf[1]; this.bCol = conf[2];
-        this.el.innerHTML = `<div class="player-label" style="border:1px solid ${this.bCol}">${(mode==="com"&&this.id==="p2")?"COM":this.label}</div><div class="head"></div><div class="body" style="background:${this.bCol}"></div>`;
+        this.el.innerHTML = `<div class="player-label" style="border:1px solid ${this.color}">${(mode==="com"&&this.id==="p2")?"COM":this.label}</div><div style="width:24px;height:24px;background:#ffd1a4;border-radius:50%;margin:0 auto;border:2px solid #000;"></div><div style="width:22px;height:32px;background:${this.color};margin:-2px auto;border:2px solid #000;border-radius:5px;"></div>`;
     }
     update() {
         this.vy -= GRAVITY; this.x += this.vx; this.y += this.vy; this.vx *= FRICTION;
-        if (this.x+30 > 200 && this.x < 770 && this.y <= GROUND_Y && this.vy <= 0 && this.y > GROUND_Y-20) { this.y = GROUND_Y; this.vy = 0; this.jumps = 0; }
+        if (this.x+30 > 200 && this.x < 770 && this.y <= GROUND_Y && this.vy <= 0 && this.y > GROUND_Y-15) { this.y = GROUND_Y; this.vy = 0; this.jumps = 0; }
         if (this.x < -100 || this.x > 1100 || this.y < -150 || this.y > 800) this.out();
         this.draw();
     }
@@ -115,97 +120,112 @@ class Fighter {
         const valEl = document.getElementById(this.id+"-val"), subEl = document.getElementById(this.id+"-sub");
         if(rule === "stock") {
             valEl.innerText = Math.floor(this.damage) + "%";
-            valEl.style.color = this.damage > 200 ? "#ff0000" : (this.damage > 100 ? "#ff6b81" : "white");
+            valEl.style.color = this.damage > 200 ? "#ff0000" : (this.damage > 100 ? "#ffcc00" : "white");
             subEl.innerText = "●".repeat(Math.max(0, this.stock));
         } else {
             valEl.innerText = Math.max(0, Math.floor(this.hp)) + " HP";
-            subEl.innerText = "Damage: " + Math.floor(this.damage) + "%";
+            subEl.innerText = "Dmg: " + Math.floor(this.damage) + "%";
         }
     }
     out() {
-        if(rule === "stock") {
-            this.stock--;
-            if(this.stock <= 0) endGame(this.id==="p1"?"P2":"P1");
-            else { showEffect("K.O."); this.reset(false); }
-        } else {
-            this.hp -= 50; // 落下ペナルティ
-            if(this.hp <= 0) endGame(this.id==="p1"?"P2":"P1");
-            else { showEffect("-50 HP"); this.reset(false); }
-        }
+        this.damage = 0;
+        if(rule === "stock") { this.stock--; if(this.stock <= 0) endGame(this.id==="p1"?"P2":"P1"); else { showEffect("K.O."); this.reset(false); } }
+        else { this.hp -= 50; if(this.hp <= 0) endGame(this.id==="p1"?"P2":"P1"); else { showEffect("-50 HP"); this.reset(false); } }
     }
-    attack(target, isSp) {
+    attack(target, type) {
         if(this.isAtk) return; this.isAtk = true;
-        const range = isSp?90:60, pwr = (isSp?18:8)*this.atkP;
-        if(Math.abs((this.x+(this.dir*20))-target.x)<range && Math.abs(this.y-target.y)<50) {
-            target.damage += pwr;
-            if(rule==="hp") target.hp -= pwr;
-            // 200%超えで吹っ飛び倍率アップ
-            const multiplier = target.damage > 200 ? 2.5 : 1.0;
-            const kb = ((target.damage / 7) + (isSp?15:6)) * multiplier;
-            target.vx = this.dir * kb; target.vy = kb * 0.4 + 2;
-            if(rule==="hp" && target.hp <= 0) endGame(this.id==="p1"?"P2":"P1");
+        if(type === "proj") {
+            const p = { x: this.x + (this.dir*40), y: this.y + 25, vx: this.dir*10, owner: this, el: document.createElement("div") };
+            p.el.className = "projectile"; p.el.style.borderColor = this.color;
+            document.getElementById("game-stage").appendChild(p.el);
+            projectiles.push(p);
+        } else {
+            const range = type==="sp"?90:60;
+            if(Math.abs((this.x+(this.dir*25))-target.x)<range && Math.abs(this.y-target.y)<50) {
+                this.hit(target, type==="sp"?18:8, type==="sp"?1.5:1);
+            }
         }
-        setTimeout(()=>this.isAtk=false, isSp?500:250);
+        setTimeout(()=>this.isAtk=false, 300);
+    }
+    hit(target, pwr, kbMult) {
+        target.damage += pwr;
+        if(rule==="hp") target.hp -= pwr;
+        const totalKb = ((target.damage / 6) + 6) * kbMult * (target.damage > 200 ? 2.5 : 1);
+        target.vx = this.dir * totalKb; target.vy = totalKb * 0.3 + 3;
+        if(rule==="hp" && target.hp <= 0) endGame(this.id==="p1"?"P2":"P1");
     }
 }
 
-let p1 = new Fighter("p1", 300, "#3498db", "1P"), p2 = new Fighter("p2", 660, "#e74c3c", "2P"), keys = {};
+let p1 = new Fighter("p1", 300, "#3498db", "1P"), p2 = new Fighter("p2", 660, "#e74c3c", "2P");
 
 function startGame(m) {
-    mode = m; rule = document.getElementById("rule-mode").value; comLvl = parseInt(document.getElementById("com-lvl").value);
+    mode = m; rule = document.getElementById("rule-mode").value; itemOn = document.getElementById("item-toggle").value === "on";
     document.getElementById("menu").style.display = "none"; document.getElementById("game-container").style.display = "block";
     p1.reset(true); p2.reset(true); isRunning = true; loop();
 }
 
 function endGame(win) { isRunning = false; document.getElementById("result-screen").style.display = "flex"; document.getElementById("winner-text").innerText = win + " WINS!"; }
 
-function spawnItem() {
-    if(!isRunning || items.length > 1) return;
-    const type = Math.random() > 0.5 ? "heal" : "bomb";
-    const item = { x: 250 + Math.random()*500, y: 500, type, el: document.createElement("div") };
-    item.el.className = "item"; item.el.style.background = type==="heal"?"#2ecc71":"#ff4757";
-    document.getElementById("game-stage").appendChild(item.el);
-    items.push(item);
-}
-
 window.addEventListener("keydown", e => {
     keys[e.code] = true; if(!isRunning) return;
-    if(e.code==="KeyW") p1.vy=12, p1.jumps++; // 簡易ジャンプ
-    if(e.code==="KeyF") p1.attack(p2, false); if(e.code==="KeyG") p1.attack(p2, true);
-    if(mode==="p2") { if(e.code==="ArrowUp") p2.vy=12; if(e.code==="KeyL") p2.attack(p1, false); if(e.code==="KeyK") p2.attack(p1, true); }
+    if(e.code==="KeyW" && p1.jumps < 2) { p1.vy=11; p1.jumps++; }
+    if(e.code===document.getElementById("p1-atk-key").value) p1.attack(p2, "normal");
+    if(e.code===document.getElementById("p1-proj-key").value) p1.attack(p2, "proj");
+    if(e.code===document.getElementById("p1-sp-key").value) p1.attack(p2, "sp");
+    
+    if(mode==="p2") {
+        if(e.code==="ArrowUp" && p2.jumps < 2) { p2.vy=11; p2.jumps++; }
+        if(e.code===document.getElementById("p2-atk-key").value) p2.attack(p1, "normal");
+        if(e.code===document.getElementById("p2-proj-key").value) p2.attack(p1, "proj");
+        if(e.code===document.getElementById("p2-sp-key").value) p2.attack(p1, "sp");
+    }
 });
 window.addEventListener("keyup", e => keys[e.code] = false);
 
 function loop() {
     if(!isRunning) return;
-    // P1
-    if(keys["KeyA"]) { p1.vx -= p1.spd; p1.dir = -1; } if(keys["KeyD"]) { p1.vx += p1.spd; p1.dir = 1; }
-    // P2 / COM
+    // Movement
+    if(keys["KeyA"]) { p1.vx -= 0.8; p1.dir = -1; } if(keys["KeyD"]) { p1.vx += 0.8; p1.dir = 1; }
     if(mode==="p2") {
-        if(keys["ArrowLeft"]) { p2.vx -= p2.spd; p2.dir = -1; } if(keys["ArrowRight"]) { p2.vx += p2.spd; p2.dir = 1; }
+        if(keys["ArrowLeft"]) { p2.vx -= 0.8; p2.dir = -1; } if(keys["ArrowRight"]) { p2.vx += 0.8; p2.dir = 1; }
     } else {
-        let diff = p1.x - p2.x, dist = Math.abs(diff);
-        if(dist > 50) { p2.vx += (diff>0?0.2: -0.2) * comLvl; p2.dir = diff>0?1:-1; }
-        if(dist < 70 && Math.random() < 0.03 * comLvl) p2.attack(p1, Math.random()<0.1*comLvl);
-        if((p1.y > p2.y+40 || p2.y < GROUND_Y) && Math.random() < 0.03 * comLvl) p2.vy = 12;
+        let diff = p1.x - p2.x, lvl = parseInt(document.getElementById("com-lvl").value);
+        if(Math.abs(diff) > 60) { p2.vx += (diff>0?0.3: -0.3)*lvl; p2.dir = diff>0?1:-1; }
+        if(Math.abs(diff) < 200 && Math.random() < 0.02 * lvl) p2.attack(p1, Math.random()<0.3?"proj":"normal");
+        if(p2.y < GROUND_Y && Math.random() < 0.05) { p2.vy = 11; p2.jumps++; }
     }
     p1.update(); p2.update();
+
+    // Projectiles
+    projectiles.forEach((p, i) => {
+        p.x += p.vx; p.el.style.left = p.x+"px"; p.el.style.bottom = p.y+"px";
+        let target = p.owner === p1 ? p2 : p1;
+        if(Math.abs(p.x-target.x)<30 && Math.abs(p.y-(target.y+30))<30) {
+            p.owner.hit(target, 5, 0.8); p.el.remove(); projectiles.splice(i, 1);
+        } else if(p.x < 0 || p.x > 1000) { p.el.remove(); projectiles.splice(i, 1); }
+    });
+
     // Items
+    if(itemOn && Math.random() < 0.005 && items.length < 2) {
+        const it = { x: 200+Math.random()*600, y: 500, type: Math.random()>0.5?"heal":"bomb", el: document.createElement("div") };
+        it.el.className = "item"; it.el.style.background = it.type==="heal"?"#2ecc71":"#ff4757";
+        document.getElementById("game-stage").appendChild(it.el); items.push(it);
+    }
     items.forEach((it, i) => {
         it.y -= 2; it.el.style.left = it.x+"px"; it.el.style.bottom = it.y+"px";
         [p1, p2].forEach(p => {
             if(Math.abs(p.x-it.x)<30 && Math.abs(p.y-it.y)<30) {
-                if(it.type==="heal") { p.damage = Math.max(0, p.damage-50); p.hp = Math.min(200, p.hp+50); showEffect("HEAL!"); }
-                else { p.damage += 40; p.vx = (p.x-it.x)*2; p.vy = 15; showEffect("BOMB!"); }
+                if(it.type==="heal") { p.damage = Math.max(0, p.damage-50); p.hp = Math.min(200, p.hp+50); }
+                else { p.damage += 30; p.vx = (p.x-it.x)*2; p.vy = 12; }
                 it.el.remove(); items.splice(i, 1);
             }
         });
         if(it.y < 0) { it.el.remove(); items.splice(i, 1); }
     });
-    if(Math.random() < 0.005) spawnItem();
+
     requestAnimationFrame(loop);
 }
-function showEffect(t) { const o = document.getElementById("overlay"); o.innerText = t; setTimeout(()=>o.innerText="", 800); }
+function showEffect(t) { const o = document.getElementById("overlay"); o.innerText = t; setTimeout(()=>o.innerText="", 1000); }
 </script>
 </body>
 </html>
