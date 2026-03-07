@@ -41,12 +41,18 @@
             <div>タイプ: <select id="type2"><option value="fighter">格闘</option><option value="sword" selected>剣</option><option value="gun">銃</option></select></div>
             <div>操作: <select id="style1" onchange="updateGuide()"><option value="wasd">WASD設定</option><option value="arrow">矢印設定</option></select></div>
             <div>操作: <select id="style2" onchange="updateGuide()"><option value="arrow" selected>矢印設定</option><option value="wasd">WASD設定</option></select></div>
-            <strong>【設定】</strong><strong>【COMレベル】</strong>
+            <strong>【設定】</strong><strong>【COM設定】</strong>
             <div>アイテム: <select id="item-spawn"><option value="on" selected>ON</option><option value="off">OFF</option></select></div>
-            <div>レベル: <select id="com-lvl">
+            <div>思考Lv: <select id="com-lvl">
                 <option value="1">Lv.1 (のんびり)</option>
                 <option value="3">Lv.3 (ふつう)</option>
                 <option value="max" selected>Lv.MAX (GOD)</option>
+            </select></div>
+            <div></div>
+            <div>移動速: <select id="com-speed">
+                <option value="0.7">おそい</option>
+                <option value="1.15" selected>ふつう</option>
+                <option value="1.8">はやい</option>
             </select></div>
         </div>
         <div id="controls-guide"></div>
@@ -140,8 +146,8 @@ class Fighter {
     throwBomb() {
         this.holding = null;
         const b = { 
-            x: this.x + (this.dir * 10), y: this.y, vx: 0, vy: 0, // 投げずにその場に置く設定
-            type: "bomb_active", timer: 120, range: 180, el: document.createElement("div"),
+            x: this.x + (this.dir * 10), y: this.y, vx: 0, vy: 0,
+            type: "bomb_active", timer: 120, range: 250, el: document.createElement("div"), // range 180 -> 250
             hintEl: document.createElement("div")
         };
         b.el.className = "item"; b.el.style.background = "#333"; b.el.style.borderRadius = "50%"; b.el.innerText = "💣";
@@ -196,9 +202,8 @@ function startGame(m) {
     document.getElementById("game-container").style.display = "block";
     p1.reset(true); p2.reset(true); isRunning = true; 
     
-    // アイテム出現タイマー: 15-30秒に2個程度 (平均11秒に1個)
     const scheduleNextItem = () => {
-        const delay = 8000 + Math.random() * 7000; // 8〜15秒のランダム
+        const delay = 8000 + Math.random() * 7000;
         itemTimer = setTimeout(() => {
             if(isRunning) {
                 spawnCrate();
@@ -219,21 +224,22 @@ function loop() {
     
     if(mode === "com") {
         const lvl = document.getElementById("com-lvl").value;
+        const comSpeed = parseFloat(document.getElementById("com-speed").value); // COMスピード取得
         const dist = Math.abs(p1.x - p2.x);
         const stageLeft = 150, stageRight = 950, mainFloorY = 120;
 
         if (p2.x < stageLeft - 20 || p2.x > stageRight + 20 || p2.y < mainFloorY - 20) {
-            p2.vx += (p2.x < 550 ? 1.2 : -1.2);
+            p2.vx += (p2.x < 550 ? comSpeed : -comSpeed);
             if (p2.vy < 0) p2.jump();
         } else {
             let decisionChance = lvl === "max" ? 1.0 : (lvl === "3" ? 0.05 : 0.01);
             if (Math.random() < decisionChance) {
                 const crate = items.find(i => i.type === "crate");
                 if (crate && Math.random() < 0.3) {
-                    p2.vx += (p2.x < crate.x ? 0.8 : -0.8);
+                    p2.vx += (p2.x < crate.x ? comSpeed * 0.7 : -comSpeed * 0.7);
                     if (Math.abs(p2.x - crate.x) < 70) p2.attack(p1);
                 } else {
-                    p2.vx += (p2.x < p1.x ? 0.8 : -0.8);
+                    p2.vx += (p2.x < p1.x ? comSpeed * 0.7 : -comSpeed * 0.7);
                 }
                 if (dist < 120) p2.attack(p1);
                 if (p1.y > p2.y + 50) p2.jump();
