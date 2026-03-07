@@ -48,7 +48,7 @@
 </head>
 <body>
     <div id="menu">
-        <h1 style="color: #4cd137;">BROWSER SMASH <span style="font-size:12px; color:gold;">GUNNER OVERLOAD Ver.UP</span></h1>
+        <h1 style="color: #4cd137;">BROWSER SMASH <span style="font-size:12px; color:gold;">GUNNER OVERLOAD -ULTIMATE AI-</span></h1>
         <div class="config-grid">
             <strong>【P1】</strong><strong>【P2】</strong>
             <div>タイプ: <select id="type1"><option value="gun" selected>銃(Range:Strong)</option><option value="fighter">格闘(Speed)</option><option value="sword">剣(Balance)</option></select></div>
@@ -111,11 +111,10 @@ class Fighter {
         this.isInvincible = true; setTimeout(() => this.isInvincible = false, 1500);
         this.type = document.getElementById(this.id==="p1"?"type1":"type2").value;
         
-        // stats: [近接パワー, CD, 加速, ジャンプ力]
         const stats = { 
             fighter: [14, 280, 1.4, 16], 
             sword: [10, 280, 1.15, 15], 
-            gun: [7, 350, 1.25, 15] // 銃の基礎パワーを4→7に強化
+            gun: [7, 350, 1.25, 15]
         };
         [this.meleeP, this.cd, this.accel, this.jumpV] = stats[this.type];
         
@@ -174,7 +173,6 @@ class Fighter {
         
         this.isAtk = true;
         if(this.type === "gun") { 
-            // 銃の強化: ダメージはfireProjectile内で計算
             for(let i=0; i<3; i++) {
                 setTimeout(() => this.fireProjectile(this.meleeP, 22), i * 100);
             }
@@ -232,17 +230,16 @@ class Fighter {
         } 
         else if(this.type === "gun") {
             showEffect("GENOCIDE BARRAGE!!");
-            this.isInvincible = true; // 発動中スーパーアーマー(無敵)
+            this.isInvincible = true;
             for(let i=0; i<20; i++) { 
                 setTimeout(() => {
                     if(!isRunning) return;
                     this.fireProjectile(12, 40, true);
-                    // 反動(vxの変化)を維持しつつ、ノックバック(被弾)を受けない状態に
                 }, i * 40);
             }
             setTimeout(() => { 
                 this.isAtk = false; 
-                this.isInvincible = false; // 無敵終了
+                this.isInvincible = false;
                 this.el.style.filter = ""; 
             }, 1000);
         }
@@ -274,7 +271,7 @@ class Fighter {
     hit(target, pwr, kbM) { 
         if(target.isInvincible) return; 
         target.damage += pwr;
-        this.sp = Math.min(100, this.sp + pwr * 2.2); // 銃のSPゲージ回収率も微増
+        this.sp = Math.min(100, this.sp + pwr * 2.2);
         target.sp = Math.min(100, target.sp + pwr * 0.9);
         const kb = ((target.damage / 7) + 8) * kbM; 
         target.vx = (target.x < this.x ? -1 : 1) * kb; 
@@ -304,28 +301,47 @@ function loop() {
     if(!isRunning) return;
     if(keys[p1.controls.left]) { p1.vx -= p1.accel; p1.dir = -1; }
     if(keys[p1.controls.right]) { p1.vx += p1.accel; p1.dir = 1; }
+    
+    // --- ADVANCED COM AI ---
     if(mode === "com") {
         const lvl = document.getElementById("com-lvl").value;
         const comSpeed = parseFloat(document.getElementById("com-speed").value);
-        if (p2.x < 150 || p2.x > 950 || p2.y < 120) {
-            p2.vx += (p2.x < 550 ? comSpeed : -comSpeed);
-            if (p2.vy < 0) p2.jump();
+        const decisionChance = lvl === "max" ? 0.95 : (lvl === "3" ? 0.7 : 0.4);
+
+        // 復帰アルゴリズム (Recovery Logic)
+        const isOffStage = p2.x < 150 || p2.x > 950;
+        if (isOffStage || p2.y < 110) {
+            // ステージ中央付近の安全な場所を目指す
+            const targetSafeX = p2.x < 550 ? 300 : 800;
+            p2.vx += (p2.x < targetSafeX ? comSpeed : -comSpeed);
+            
+            // 落下中かつ一定高度以下ならジャンプで高度維持
+            if (p2.vy < 0 && p2.y < 250) {
+                p2.jump();
+            }
+            // 復帰中も敵が近ければ攻撃
+            if (Math.abs(p2.x - p1.x) < 100 && Math.random() < decisionChance) p2.attack(p1);
         } else {
-            let decisionChance = lvl === "max" ? 0.9 : (lvl === "3" ? 0.06 : 0.02);
+            // 通常時の思考
             if (Math.random() < decisionChance) {
-                let targetX = (p2.type === "gun") ? (p1.x < 550 ? p1.x + 300 : p1.x - 300) : p1.x;
+                let targetX = (p2.type === "gun") ? (p1.x < 550 ? p1.x + 250 : p1.x - 250) : p1.x;
                 p2.vx += (p2.x < targetX ? comSpeed * p2.accel : -comSpeed * p2.accel);
-                if (Math.abs(p1.x - p2.x) < 450) {
+                
+                // 攻撃範囲内なら攻撃
+                const dist = Math.abs(p1.x - p2.x);
+                if (dist < (p2.type === "gun" ? 400 : 100)) {
                     if (p2.sp >= 100) p2.trySuper(p1);
                     else p2.attack(p1);
                 }
-                if (p1.y > p2.y + 60) p2.jump();
+                // 相手が高い位置にいたらジャンプ
+                if (p1.y > p2.y + 50 || (p1.y > 120 && p2.y < 120)) p2.jump();
             }
         }
     } else {
         if(keys[p2.controls.left]) { p2.vx -= p2.accel; p2.dir = -1; }
         if(keys[p2.controls.right]) { p2.vx += p2.accel; p2.dir = 1; }
     }
+    
     p1.update(); p2.update();
     items.forEach((it, i) => {
         if(it.type !== "bomb_active") {
@@ -347,7 +363,7 @@ function loop() {
             if(it.timer < 40) it.hintEl.style.display = "block";
             if(it.timer <= 0) {
                 [p1, p2].forEach(p => {
-                    if(p.isInvincible && p.type === "gun" && p.isAtk) return; // 銃SP中は爆発ものけぞらない
+                    if(p.isInvincible && p.type === "gun" && p.isAtk) return;
                     const d = Math.sqrt((p.x-it.x)**2 + (p.y-it.y)**2);
                     if(d < it.range) { p.damage += 35; p.vx = (p.x < it.x ? -20 : 20); p.vy = 16; p.sp = Math.min(100, p.sp + 15); }
                 });
