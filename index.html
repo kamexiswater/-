@@ -58,7 +58,11 @@
             <div>操作: <select id="style2" onchange="updateGuide()"><option value="arrow" selected>矢印設定</option><option value="wasd">WASD設定</option></select></div>
 
             <strong>【システム設定】</strong><strong>【AIレベル】</strong>
-            <div>ゲーム速度: <select id="game-speed"><option value="1">1.0x (標準)</option><option value="1.2">1.2x (高速)</option><option value="1.5">1.5x (爆速)</option></select></div>
+            <div>ゲーム速度: <select id="game-speed">
+                <option value="0.5">0.5x (低速)</option>
+                <option value="0.75" selected>0.75x (標準)</option>
+                <option value="1.0">1.0x (高速)</option>
+            </select></div>
             <div>思考Lv: <select id="com-lvl"><option value="1">Lv.1</option><option value="3">Lv.3</option><option value="max" selected>Lv.MAX</option></select></div>
             <div>アイテム: <select id="item-spawn"><option value="on" selected>ON</option><option value="off">OFF</option></select></div>
             <div></div>
@@ -81,7 +85,7 @@
 const GRAVITY = 0.62, FRICTION = 0.90;
 let mode = "p2", isRunning = false, projectiles = [], items = [], keys = {}, platforms = [];
 let itemTimer = null;
-let gameSpeedMultiplier = 1.0;
+let gameSpeedMultiplier = 0.75;
 let p1, p2;
 
 function updateGuide() {
@@ -299,25 +303,25 @@ function startGame(m) {
 function loop() {
     if(!isRunning) return;
     
-    // ゲームスピードに合わせて1フレーム内の更新回数を調整
-    // (簡易的に複数回updateを呼ぶことで速度を表現)
-    let updates = gameSpeedMultiplier >= 1.5 ? 2 : 1; 
-    // ※1.2倍などの細かい調整は物理値への乗算が望ましいですが、
-    // 全体の「進行感」を出すためにロジックを回します。
-    
-    for(let step=0; step < (gameSpeedMultiplier > 1.2 ? 2 : 1); step++) {
+    // スピード倍率に応じて物理演算を回す
+    // 倍率が高ければ1フレームに複数回回す、低ければ物理係数を調整
+    const subSteps = gameSpeedMultiplier >= 1.0 ? 2 : 1;
+    for(let step=0; step < subSteps; step++) {
         updatePhysics();
-        if(gameSpeedMultiplier <= 1.2 && step === 0) break; 
     }
     
     requestAnimationFrame(loop);
 }
 
 function updatePhysics() {
+    // 物理定数に倍率を反映 (低速時の「もっさり感」を出す)
+    // subStepsで回しきれない端数や低速はここでの係数調整
+    const internalSpeed = gameSpeedMultiplier < 1.0 ? gameSpeedMultiplier : 0.75; // 基準を0.75付近に
+
     // P1入力
     if(!p1.isGrabbingLedge) {
-        if(keys[p1.controls.left]) { p1.vx -= p1.accel; p1.dir = -1; }
-        if(keys[p1.controls.right]) { p1.vx += p1.accel; p1.dir = 1; }
+        if(keys[p1.controls.left]) { p1.vx -= p1.accel * internalSpeed; p1.dir = -1; }
+        if(keys[p1.controls.right]) { p1.vx += p1.accel * internalSpeed; p1.dir = 1; }
     }
     
     // COM AI
@@ -331,13 +335,13 @@ function updatePhysics() {
             const isOffStage = p2.x < stageLeft || p2.x > stageRight;
             if (isOffStage || p2.y < 110) {
                 const targetX = p2.x < 550 ? stageLeft + 150 : stageRight - 150;
-                p2.vx += (p2.x < targetX ? p2.accel : -p2.accel);
+                p2.vx += (p2.x < targetX ? p2.accel : -p2.accel) * internalSpeed;
                 if (p2.vy < 0 && p2.y < 220) p2.jump();
                 if (p2.y < 50) p2.jump();
             } else {
                 if (Math.random() < decisionChance) {
                     let targetX = (p2.type === "gun") ? (p1.x < 550 ? p1.x + 240 : p1.x - 240) : p1.x;
-                    p2.vx += (p2.x < targetX ? p2.accel : -p2.accel);
+                    p2.vx += (p2.x < targetX ? p2.accel : -p2.accel) * internalSpeed;
                     if (Math.abs(p1.x - p2.x) < (p2.type === "gun" ? 450 : 110)) {
                         if (p2.sp >= 100) p2.trySuper(p1); else p2.attack(p1);
                     }
@@ -347,8 +351,8 @@ function updatePhysics() {
         }
     } else {
         if(!p2.isGrabbingLedge) {
-            if(keys[p2.controls.left]) { p2.vx -= p2.accel; p2.dir = -1; }
-            if(keys[p2.controls.right]) { p2.vx += p2.accel; p2.dir = 1; }
+            if(keys[p2.controls.left]) { p2.vx -= p2.accel * internalSpeed; p2.dir = -1; }
+            if(keys[p2.controls.right]) { p2.vx += p2.accel * internalSpeed; p2.dir = 1; }
         }
     }
     
@@ -363,11 +367,11 @@ function updatePhysics() {
                 }
             });
         }
-        it.vy -= 0.5; it.x += (it.vx || 0); it.y += it.vy; it.vx *= 0.98;
+        it.vy -= 0.5 * internalSpeed; it.x += (it.vx || 0); it.y += it.vy; it.vx *= 0.98;
         platforms.forEach(pl => { if(it.vy <= 0 && it.x > pl.x-20 && it.x < pl.x+pl.w && it.y <= pl.y && it.y > pl.y-20) { it.y = pl.y; it.vy = 0; it.vx = 0; } });
         it.el.style.left = it.x + "px"; it.el.style.bottom = it.y + "px";
         if(it.type === "bomb_active") {
-            it.timer--; it.hintEl.style.left = it.x + "px"; it.hintEl.style.bottom = it.y + "px";
+            it.timer -= internalSpeed * 1.5; it.hintEl.style.left = it.x + "px"; it.hintEl.style.bottom = it.y + "px";
             if(it.timer < 40) it.hintEl.style.display = "block";
             if(it.timer <= 0) {
                 [p1, p2].forEach(p => {
@@ -380,7 +384,7 @@ function updatePhysics() {
     });
     
     projectiles.forEach((p, i) => {
-        p.x += p.vx; p.el.style.left = p.x + "px"; p.el.style.bottom = p.y + "px";
+        p.x += p.vx * (gameSpeedMultiplier / 0.75); p.el.style.left = p.x + "px"; p.el.style.bottom = p.y + "px";
         let target = p.owner === p1 ? p2 : p1;
         if(Math.abs(p.x - target.x) < 40 && Math.abs(p.y - target.y) < 50) { p.owner.hit(target, p.pwr, 1.4); p.el.remove(); projectiles.splice(i, 1); }
         else if(p.x < -300 || p.x > 1400) { p.el.remove(); projectiles.splice(i, 1); }
