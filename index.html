@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Browser Smash - Brawler Evolution</title>
+    <title>Browser Smash - Gunner Overload</title>
     <style>
         body { margin: 0; background: #1a1a1a; color: white; font-family: sans-serif; text-align: center; overflow: hidden; }
         #menu, #result-screen {
@@ -26,7 +26,7 @@
         
         #game-stage {
             width: 1100px; height: 600px; margin: 5px auto;
-            background: linear-gradient(to bottom, #0f2027, #203a43, #2c5364);
+            background: linear-gradient(to bottom, #050505, #1a1a2e, #16213e);
             border: 4px solid #000; position: relative; overflow: hidden;
         }
         .platform { position: absolute; background: #444; border-bottom: 5px solid #222; border-radius: 4px; z-index: 1; }
@@ -39,7 +39,7 @@
             box-shadow: 0 0 5px rgba(255,255,255,0.5);
         }
         
-        .projectile { position: absolute; width: 16px; height: 16px; border-radius: 50%; box-shadow: 0 0 10px white; z-index: 15; }
+        .projectile { position: absolute; width: 14px; height: 8px; border-radius: 4px; z-index: 15; box-shadow: 0 0 8px #ff0; }
         .item { position: absolute; width: 34px; height: 34px; z-index: 5; display: flex; justify-content: center; align-items: center; font-weight: bold; border-radius: 4px; font-size: 20px; }
         .crate { background: #8b4513; border: 2px solid #5d2e0a; color: #ffd700; }
         .explosion-hint { position: absolute; border-radius: 50%; background: rgba(255, 0, 0, 0.2); border: 2px solid rgba(255, 0, 0, 0.5); pointer-events: none; transform: translate(-50%, 50%); z-index: 2; }
@@ -48,11 +48,11 @@
 </head>
 <body>
     <div id="menu">
-        <h1 style="color: #ff4757;">BROWSER SMASH <span style="font-size:12px; color:gold;">BRAWLER EVO</span></h1>
+        <h1 style="color: #4cd137;">BROWSER SMASH <span style="font-size:12px; color:gold;">GUNNER OVERLOAD</span></h1>
         <div class="config-grid">
             <strong>【P1】</strong><strong>【P2】</strong>
-            <div>タイプ: <select id="type1"><option value="fighter">格闘(Speed)</option><option value="sword">剣(Balance)</option><option value="gun">銃(Range)</option></select></div>
-            <div>タイプ: <select id="type2"><option value="fighter">格闘(Speed)</option><option value="sword" selected>剣(Balance)</option><option value="gun">銃(Range)</option></select></div>
+            <div>タイプ: <select id="type1"><option value="gun" selected>銃(Range:Buffed)</option><option value="fighter">格闘(Speed)</option><option value="sword">剣(Balance)</option></select></div>
+            <div>タイプ: <select id="type2"><option value="gun">銃(Range:Buffed)</option><option value="fighter">格闘(Speed)</option><option value="sword" selected>剣(Balance)</option></select></div>
             <div>操作: <select id="style1" onchange="updateGuide()"><option value="wasd">WASD設定</option><option value="arrow">矢印設定</option></select></div>
             <div>操作: <select id="style2" onchange="updateGuide()"><option value="arrow" selected>矢印設定</option><option value="wasd">WASD設定</option></select></div>
             <strong>【設定】</strong><strong>【COM設定】</strong>
@@ -77,7 +77,6 @@
 
 <script>
 const GRAVITY = 0.62, FRICTION = 0.90;
-let MOVE_ACCEL = 1.15;
 let mode = "p2", isRunning = false, projectiles = [], items = [], keys = {}, platforms = [];
 let itemTimer = null;
 let p1, p2;
@@ -112,10 +111,12 @@ class Fighter {
         this.isInvincible = true; setTimeout(() => this.isInvincible = false, 1500);
         this.type = document.getElementById(this.id==="p1"?"type1":"type2").value;
         
-        // パラメータ調整
-        // fighter: 威力高、クールダウン短、移動速
-        // gun: 威力低、クールダウン長、弾速調整
-        const stats = { fighter: [14, 280, 1.4, 16], sword: [10, 280, 1.15, 15], gun: [5, 450, 1.0, 14] };
+        // パラメータ調整: gunのcdを短縮し移動力をUP
+        const stats = { 
+            fighter: [14, 280, 1.4, 16], 
+            sword: [10, 280, 1.15, 15], 
+            gun: [4, 350, 1.25, 15] 
+        };
         [this.meleeP, this.cd, this.accel, this.jumpV] = stats[this.type];
         
         if(!this.el) {
@@ -153,12 +154,8 @@ class Fighter {
                 const sEl = document.getElementById(this.id + "-sword");
                 if(sEl) sEl.style.transform = this.isAtk ? "rotate(130deg)" : "rotate(20deg)";
             }
-            // 格闘タイプのアタック中エフェクト
-            if(this.type === "fighter" && this.isAtk) {
-                this.el.style.filter = "contrast(2) brightness(1.5)";
-            } else if (!this.isAtk) {
-                this.el.style.filter = "";
-            }
+            if(this.type === "gun" && this.isAtk) this.el.style.filter = "drop-shadow(0 0 5px #ff0)";
+            else if (!this.isAtk) this.el.style.filter = "";
         }
         
         document.getElementById(this.id+"-val").innerText = Math.floor(this.damage) + "%";
@@ -166,7 +163,7 @@ class Fighter {
         document.getElementById(this.id+"-holding").innerText = this.holding ? "ITEM: " + this.holding.toUpperCase() : "";
         const spFill = document.getElementById(this.id+"-sp");
         spFill.style.width = this.sp + "%";
-        spFill.style.background = this.sp >= 100 ? "#f1c40f" : "#3498db";
+        spFill.style.background = this.sp >= 100 ? "#4cd137" : "#3498db";
     }
 
     out() { this.stock--; if(this.stock <= 0) endGame(this.id==="p1"?"P2":"P1"); else { showEffect("K.O."); this.reset(false); } }
@@ -177,12 +174,15 @@ class Fighter {
         
         this.isAtk = true;
         if(this.type === "gun") { 
-            this.fireProjectile(4, 18); // 威力と速度を少し低下させバランス調整
+            // 銃の強化: 3連射
+            for(let i=0; i<3; i++) {
+                setTimeout(() => this.fireProjectile(4, 22), i * 100);
+            }
         }
         else {
             const reach = this.type === "sword" ? 115 : 75;
             if(Math.abs(this.x - target.x) < reach && Math.abs(this.y - target.y) < 70) {
-                const kb = this.type === "fighter" ? 1.6 : 1.4; // 格闘はノックバック強め
+                const kb = this.type === "fighter" ? 1.6 : 1.4;
                 this.hit(target, this.meleeP, kb);
             }
         }
@@ -197,31 +197,23 @@ class Fighter {
     useSuper(target) {
         this.sp = 0;
         this.isAtk = true;
-        this.el.style.filter = "brightness(2) drop-shadow(0 0 10px gold)";
+        this.el.style.filter = "brightness(2) drop-shadow(0 0 10px #4cd137)";
 
         if(this.type === "fighter") {
             showEffect("METEOR STRIKE!!");
-            // 打ち上げ
             const d = Math.sqrt((this.x-target.x)**2 + (this.y-target.y)**2);
             if(d < 200) {
                 target.vy = 25; target.vx = 0;
                 setTimeout(() => {
-                    // 急降下追撃
-                    this.y = target.y + 100;
-                    this.x = target.x;
-                    this.vy = -30;
+                    this.y = target.y + 100; this.x = target.x; this.vy = -30;
                     const checkHit = setInterval(() => {
                         if(Math.abs(this.y - target.y) < 40) {
-                            this.hit(target, 40, 3.5);
-                            showEffect("SMASH!!");
-                            clearInterval(checkHit);
+                            this.hit(target, 40, 3.5); showEffect("SMASH!!"); clearInterval(checkHit);
                         }
                     }, 20);
                     setTimeout(() => { clearInterval(checkHit); this.isAtk = false; this.el.style.filter = ""; }, 500);
                 }, 400);
-            } else {
-                this.isAtk = false; this.el.style.filter = "";
-            }
+            } else { this.isAtk = false; this.el.style.filter = ""; }
         } 
         else if(this.type === "sword") {
             showEffect("CYCLONE SLASH!!");
@@ -239,11 +231,14 @@ class Fighter {
             }, 30);
         } 
         else if(this.type === "gun") {
-            showEffect("MEGA BARRAGE!!");
-            for(let i=0; i<10; i++) { // 弾数を増やして制圧力を強化
-                setTimeout(() => this.fireProjectile(12, 30, true), i * 80);
+            showEffect("GENOCIDE BARRAGE!!");
+            for(let i=0; i<20; i++) { // 圧倒的な20連射
+                setTimeout(() => {
+                    this.fireProjectile(10, 40, true);
+                    this.vx -= this.dir * 2; // 反動
+                }, i * 40);
             }
-            setTimeout(() => { this.isAtk = false; this.el.style.filter = ""; }, 900);
+            setTimeout(() => { this.isAtk = false; this.el.style.filter = ""; }, 1000);
         }
     }
 
@@ -265,15 +260,15 @@ class Fighter {
     fireProjectile(pwr, speed, isSuper = false) {
         const p = { x: this.x + (this.dir*30), y: this.y + 25, vx: this.dir*speed, owner: this, pwr, el: document.createElement("div") };
         p.el.className = "projectile";
-        p.el.style.background = isSuper ? "cyan" : "#ffff00";
-        if(isSuper) p.el.style.transform = "scale(3.5)";
+        p.el.style.background = isSuper ? "lime" : "#ffff00";
+        if(isSuper) { p.el.style.transform = "scale(5)"; p.el.style.boxShadow = "0 0 15px lime"; }
         document.getElementById("game-stage").appendChild(p.el); projectiles.push(p);
     }
 
     hit(target, pwr, kbM) { 
         if(target.isInvincible) return; 
         target.damage += pwr;
-        this.sp = Math.min(100, this.sp + pwr * 1.8); // 格闘タイプがSPを溜めやすく調整
+        this.sp = Math.min(100, this.sp + pwr * 2.0); // 銃はSPがより溜まる
         target.sp = Math.min(100, target.sp + pwr * 0.9);
         const kb = ((target.damage / 7) + 8) * kbM; 
         target.vx = (target.x < this.x ? -1 : 1) * kb; 
@@ -312,8 +307,10 @@ function loop() {
         } else {
             let decisionChance = lvl === "max" ? 0.9 : (lvl === "3" ? 0.06 : 0.02);
             if (Math.random() < decisionChance) {
-                p2.vx += (p2.x < p1.x ? comSpeed * p2.accel : -comSpeed * p2.accel);
-                if (Math.abs(p1.x - p2.x) < 140) {
+                // 銃タイプなら少し距離を取るAI
+                let targetX = (p2.type === "gun") ? (p1.x < 550 ? p1.x + 300 : p1.x - 300) : p1.x;
+                p2.vx += (p2.x < targetX ? comSpeed * p2.accel : -comSpeed * p2.accel);
+                if (Math.abs(p1.x - p2.x) < 400) {
                     if (p2.sp >= 100) p2.trySuper(p1);
                     else p2.attack(p1);
                 }
@@ -356,7 +353,8 @@ function loop() {
         p.x += p.vx; p.el.style.left = p.x + "px"; p.el.style.bottom = p.y + "px";
         let target = p.owner === p1 ? p2 : p1;
         if(Math.abs(p.x - target.x) < 40 && Math.abs(p.y - target.y) < 50) {
-            p.owner.hit(target, p.pwr, 1.1); p.el.remove(); projectiles.splice(i, 1);
+            p.owner.hit(target, p.pwr, 1.3); // 銃のノックバック倍率を強化
+            p.el.remove(); projectiles.splice(i, 1);
         } else if(p.x < -300 || p.x > 1400) { p.el.remove(); projectiles.splice(i, 1); }
     });
     requestAnimationFrame(loop);
