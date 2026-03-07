@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Browser Smash - Gunner Overload: Perfect Edition</title>
+    <title>Browser Smash - Gunner Overload: Ledge Recovery Edition</title>
     <style>
         body { margin: 0; background: #1a1a1a; color: white; font-family: sans-serif; text-align: center; overflow: hidden; }
         #menu, #result-screen {
@@ -48,7 +48,7 @@
 </head>
 <body>
     <div id="menu">
-        <h1 style="color: #4cd137;">BROWSER SMASH <span style="font-size:12px; color:gold;">GUNNER OVERLOAD -ULTIMATE AI-</span></h1>
+        <h1 style="color: #4cd137;">BROWSER SMASH <span style="font-size:12px; color:gold;">LEDGE RECOVERY -ULTIMATE-</span></h1>
         <div class="config-grid">
             <strong>【P1設定】</strong><strong>【P2/COM設定】</strong>
             <div>タイプ: <select id="type1"><option value="gun" selected>銃(Range)</option><option value="fighter">格闘(Speed)</option><option value="sword">剣(Balance)</option></select></div>
@@ -104,12 +104,17 @@ class Fighter {
         this.id = id; this.startX = x; this.color = color; this.label = label;
         this.el = null; this.holding = null; this.sp = 0;
         this.isCom = false;
+        // 崖つかみ関連の変数
+        this.isGrabbingLedge = false;
+        this.ledgeCooldown = 0;
     }
     reset(full) {
         if(full) { this.stock = 3; this.sp = 0; }
         this.damage = 0; this.x = this.startX; this.y = 350; this.holding = null;
         this.oldY = 350; this.vx = 0; this.vy = 0; this.dir = (this.x < 550) ? 1 : -1;
         this.jumps = 0; this.isAtk = false;
+        this.isGrabbingLedge = false;
+        this.ledgeCooldown = 0;
         this.controls = getControls(this.id);
         this.isInvincible = true; setTimeout(() => this.isInvincible = false, 1500);
         
@@ -137,16 +142,50 @@ class Fighter {
             ${swordHtml}`;
     }
     
-    jump() { if(this.jumps < 2) { this.vy = this.jumpV; this.jumps++; } }
+    jump() { 
+        if(this.isGrabbingLedge) {
+            this.isGrabbingLedge = false;
+            this.vy = this.jumpV;
+            this.jumps = 1;
+            this.ledgeCooldown = 60; // 1秒間は再度掴めない
+            return;
+        }
+        if(this.jumps < 2) { this.vy = this.jumpV; this.jumps++; } 
+    }
     
     update() {
-        this.oldY = this.y; this.vy -= GRAVITY; this.x += this.vx; this.y += this.vy; this.vx *= FRICTION;
-        platforms.forEach(p => {
-            if (this.vy <= 0 && (this.x + 25 > p.x && this.x + 5 < p.x + p.w)) {
-                if (this.oldY >= p.y && this.y <= p.y) { this.y = p.y; this.vy = 0; this.jumps = 0; }
+        if (this.ledgeCooldown > 0) this.ledgeCooldown--;
+
+        if (this.isGrabbingLedge) {
+            this.vx = 0;
+            this.vy = 0;
+        } else {
+            this.oldY = this.y; this.vy -= GRAVITY; this.x += this.vx; this.y += this.vy; this.vx *= FRICTION;
+            
+            // 床判定
+            platforms.forEach(p => {
+                if (this.vy <= 0 && (this.x + 25 > p.x && this.x + 5 < p.x + p.w)) {
+                    if (this.oldY >= p.y && this.y <= p.y) { this.y = p.y; this.vy = 0; this.jumps = 0; }
+                }
+            });
+
+            // --- 崖つかみ判定 (Ledge Detection) ---
+            if (this.vy < 0 && this.ledgeCooldown <= 0) {
+                platforms.forEach(p => {
+                    // 左側の崖
+                    if (Math.abs(this.x + 35 - p.x) < 15 && Math.abs(this.y - (p.y - 40)) < 25) {
+                        this.isGrabbingLedge = true; this.x = p.x - 35; this.y = p.y - 40; this.dir = 1;
+                    }
+                    // 右側の崖
+                    if (Math.abs(this.x + 5 - (p.x + p.w)) < 15 && Math.abs(this.y - (p.y - 40)) < 25) {
+                        this.isGrabbingLedge = true; this.x = p.x + p.w - 5; this.y = p.y - 40; this.dir = -1;
+                    }
+                });
             }
-        });
+        }
+
         if (this.x < -400 || this.x > 1500 || this.y < -500) this.out();
+        
         if(this.el) {
             this.el.style.left = this.x + "px"; this.el.style.bottom = this.y + "px";
             this.el.style.transform = `scaleX(${this.dir})`;
@@ -169,7 +208,7 @@ class Fighter {
     out() { this.stock--; if(this.stock <= 0) endGame(this.id==="p1"?"P2":"P1"); else { showEffect("K.O."); this.reset(false); } }
 
     attack(target) {
-        if(this.isAtk) return;
+        if(this.isAtk || this.isGrabbingLedge) return;
         if(this.holding === "bomb") { this.throwBomb(); return; }
         this.isAtk = true;
         if(this.type === "gun") { 
@@ -185,7 +224,7 @@ class Fighter {
         setTimeout(()=>this.isAtk=false, this.cd);
     }
 
-    trySuper(target) { if(this.sp >= 100 && !this.isAtk) this.useSuper(target); }
+    trySuper(target) { if(this.sp >= 100 && !this.isAtk && !this.isGrabbingLedge) this.useSuper(target); }
 
     useSuper(target) {
         this.sp = 0; this.isAtk = true;
@@ -239,6 +278,7 @@ class Fighter {
 
     hit(target, pwr, kbM) { 
         if(target.isInvincible) return; 
+        target.isGrabbingLedge = false; // 被弾で崖つかみ解除
         target.damage += pwr; this.sp = Math.min(100, this.sp + pwr * 2.2); target.sp = Math.min(100, target.sp + pwr * 0.9);
         const kb = ((target.damage / 7) + 8) * kbM; 
         target.vx = (target.x < this.x ? -1 : 1) * kb; target.vy = kb * 0.3 + 5; 
@@ -263,45 +303,51 @@ function startGame(m) {
 
 function loop() {
     if(!isRunning) return;
-    if(keys[p1.controls.left]) { p1.vx -= p1.accel; p1.dir = -1; }
-    if(keys[p1.controls.right]) { p1.vx += p1.accel; p1.dir = 1; }
     
-    // --- ADVANCED RECOVERY & COM AI ---
+    // P1入力
+    if(!p1.isGrabbingLedge) {
+        if(keys[p1.controls.left]) { p1.vx -= p1.accel; p1.dir = -1; }
+        if(keys[p1.controls.right]) { p1.vx += p1.accel; p1.dir = 1; }
+    }
+    
+    // --- COM AI ---
     if(mode === "com") {
         const lvl = document.getElementById("com-lvl").value;
         const decisionChance = lvl === "max" ? 0.98 : (lvl === "3" ? 0.75 : 0.4);
 
-        // 復帰アルゴリズム強化 (Stronger Recovery)
-        const stageLeft = 150, stageRight = 950;
-        const isOffStage = p2.x < stageLeft || p2.x > stageRight;
-        
-        if (isOffStage || p2.y < 110) {
-            // ステージの端を認識して中央へ加速
-            const targetX = p2.x < 550 ? stageLeft + 150 : stageRight - 150;
-            p2.vx += (p2.x < targetX ? p2.accel : -p2.accel);
-            
-            // 落下し始めたら、空中ジャンプを小出しにする（高度維持）
-            if (p2.vy < 0 && p2.y < 220) p2.jump();
-            
-            // 崖際でのみ必死にジャンプ（復帰阻止回避）
-            if (p2.y < 50) p2.jump();
+        if (p2.isGrabbingLedge) {
+            if (Math.random() < 0.05) p2.jump(); // 崖から復帰
         } else {
-            // 通常攻撃AI
-            if (Math.random() < decisionChance) {
-                let targetX = (p2.type === "gun") ? (p1.x < 550 ? p1.x + 240 : p1.x - 240) : p1.x;
+            const stageLeft = 150, stageRight = 950;
+            const isOffStage = p2.x < stageLeft || p2.x > stageRight;
+            
+            if (isOffStage || p2.y < 110) {
+                const targetX = p2.x < 550 ? stageLeft + 150 : stageRight - 150;
                 p2.vx += (p2.x < targetX ? p2.accel : -p2.accel);
-                if (Math.abs(p1.x - p2.x) < (p2.type === "gun" ? 450 : 110)) {
-                    if (p2.sp >= 100) p2.trySuper(p1); else p2.attack(p1);
+                if (p2.vy < 0 && p2.y < 220) p2.jump();
+                if (p2.y < 50) p2.jump();
+            } else {
+                if (Math.random() < decisionChance) {
+                    let targetX = (p2.type === "gun") ? (p1.x < 550 ? p1.x + 240 : p1.x - 240) : p1.x;
+                    p2.vx += (p2.x < targetX ? p2.accel : -p2.accel);
+                    if (Math.abs(p1.x - p2.x) < (p2.type === "gun" ? 450 : 110)) {
+                        if (p2.sp >= 100) p2.trySuper(p1); else p2.attack(p1);
+                    }
+                    if (p1.y > p2.y + 60) p2.jump();
                 }
-                if (p1.y > p2.y + 60) p2.jump();
             }
         }
     } else {
-        if(keys[p2.controls.left]) { p2.vx -= p2.accel; p2.dir = -1; }
-        if(keys[p2.controls.right]) { p2.vx += p2.accel; p2.dir = 1; }
+        // P2入力
+        if(!p2.isGrabbingLedge) {
+            if(keys[p2.controls.left]) { p2.vx -= p2.accel; p2.dir = -1; }
+            if(keys[p2.controls.right]) { p2.vx += p2.accel; p2.dir = 1; }
+        }
     }
     
     p1.update(); p2.update();
+    
+    // 項目処理
     items.forEach((it, i) => {
         if(it.type !== "bomb_active") {
             [p1, p2].forEach(p => {
@@ -320,12 +366,14 @@ function loop() {
             if(it.timer <= 0) {
                 [p1, p2].forEach(p => {
                     if(p.isInvincible && p.type === "gun" && p.isAtk) return;
-                    if(Math.sqrt((p.x-it.x)**2 + (p.y-it.y)**2) < it.range) { p.damage += 35; p.vx = (p.x < it.x ? -20 : 20); p.vy = 16; p.sp = Math.min(100, p.sp + 15); }
+                    if(Math.sqrt((p.x-it.x)**2 + (p.y-it.y)**2) < it.range) { p.damage += 35; p.vx = (p.x < it.x ? -20 : 20); p.vy = 16; p.sp = Math.min(100, p.sp + 15); p.isGrabbingLedge = false; }
                 });
                 showEffect("BOOM!"); it.el.remove(); it.hintEl.remove(); items.splice(i, 1);
             }
         }
     });
+    
+    // 発射物処理
     projectiles.forEach((p, i) => {
         p.x += p.vx; p.el.style.left = p.x + "px"; p.el.style.bottom = p.y + "px";
         let target = p.owner === p1 ? p2 : p1;
