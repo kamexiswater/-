@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Browser Smash - Multi-Level Edition</title>
+    <title>Browser Smash - Multi-Level Edition SP</title>
     <style>
         body { margin: 0; background: #1a1a1a; color: white; font-family: sans-serif; text-align: center; overflow: hidden; }
         #menu, #result-screen {
@@ -17,6 +17,10 @@
         #ui-container { margin-top: 5px; display: flex; justify-content: center; gap: 20px; }
         .status-card { background: rgba(0,0,0,0.8); padding: 8px; border-radius: 10px; border: 2px solid #444; min-width: 150px; }
         .damage-percent { font-size: 28px; font-weight: bold; margin: 2px 0; }
+        /* SPゲージのスタイル */
+        .sp-bar-bg { width: 100%; height: 8px; background: #444; border-radius: 4px; overflow: hidden; margin-top: 5px; border: 1px solid #000; }
+        .sp-bar-fill { width: 0%; height: 100%; background: #3498db; transition: width 0.2s; box-shadow: 0 0 5px #3498db; }
+        
         #game-stage {
             width: 1100px; height: 600px; margin: 5px auto;
             background: linear-gradient(to bottom, #0f2027, #203a43, #2c5364);
@@ -27,14 +31,13 @@
         .projectile { position: absolute; width: 16px; height: 16px; border-radius: 50%; box-shadow: 0 0 10px white; z-index: 15; }
         .item { position: absolute; width: 34px; height: 34px; z-index: 5; display: flex; justify-content: center; align-items: center; font-weight: bold; border-radius: 4px; font-size: 20px; }
         .crate { background: #8b4513; border: 2px solid #5d2e0a; color: #ffd700; }
-        .bomb-timer { position: absolute; top: -8px; left: 0; height: 4px; background: #ff0000; width: 100%; }
         .explosion-hint { position: absolute; border-radius: 50%; background: rgba(255, 0, 0, 0.2); border: 2px solid rgba(255, 0, 0, 0.5); pointer-events: none; transform: translate(-50%, 50%); z-index: 2; }
         #overlay { position: absolute; top: 30%; left: 50%; transform: translate(-50%, -50%); font-size: 60px; font-weight: bold; color: #ff0; text-shadow: 3px 3px 0 #000; pointer-events: none; z-index: 100; }
     </style>
 </head>
 <body>
     <div id="menu">
-        <h1 style="color: #ff4757;">BROWSER SMASH <span style="font-size:12px; color:gold;">MULTI-LEVEL</span></h1>
+        <h1 style="color: #ff4757;">BROWSER SMASH <span style="font-size:12px; color:gold;">SP EDITION</span></h1>
         <div class="config-grid">
             <strong>【P1】</strong><strong>【P2】</strong>
             <div>タイプ: <select id="type1"><option value="fighter">格闘</option><option value="sword">剣</option><option value="gun">銃</option></select></div>
@@ -61,8 +64,8 @@
     <div id="result-screen" style="display:none;"><h1 id="winner-text"></h1><button onclick="location.reload()">タイトルへ</button></div>
     <div id="game-container">
         <div id="ui-container">
-            <div class="status-card">P1 <div id="p1-val" class="damage-percent">0%</div><div id="p1-sub">●●●</div><div id="p1-holding" style="color:#ff0; font-size:12px;"></div></div>
-            <div class="status-card">P2 <div id="p2-val" class="damage-percent">0%</div><div id="p2-sub">●●●</div><div id="p2-holding" style="color:#ff0; font-size:12px;"></div></div>
+            <div class="status-card">P1 <div id="p1-val" class="damage-percent">0%</div><div id="p1-sub">●●●</div><div class="sp-bar-bg"><div id="p1-sp" class="sp-bar-fill"></div></div><div id="p1-holding" style="color:#ff0; font-size:12px;"></div></div>
+            <div class="status-card">P2 <div id="p2-val" class="damage-percent">0%</div><div id="p2-sub">●●●</div><div class="sp-bar-bg"><div id="p2-sp" class="sp-bar-fill"></div></div><div id="p2-holding" style="color:#ff0; font-size:12px;"></div></div>
         </div>
         <div id="game-stage">
             <div id="overlay"></div>
@@ -77,7 +80,7 @@ let itemTimer = null;
 function updateGuide() {
     const s1 = document.getElementById("style1").value;
     const s2 = document.getElementById("style2").value;
-    const guide = (s) => s === "wasd" ? "W:跳 A:左 D:右 F:攻/置" : "↑:跳 ←:左 →:右 .:攻/置";
+    const guide = (s) => s === "wasd" ? "W:跳 A:左 D:右 F:攻/SP" : "↑:跳 ←:左 →:右 .:攻/SP";
     document.getElementById("controls-guide").innerHTML = `P1 [${s1.toUpperCase()}]: ${guide(s1)}<br>P2 [${s2.toUpperCase()}]: ${guide(s2)}`;
 }
 updateGuide();
@@ -90,10 +93,10 @@ const getControls = (id) => {
 class Fighter {
     constructor(id, x, color, label) {
         this.id = id; this.el = null; this.startX = x; this.color = color; this.label = label;
-        this.holding = null;
+        this.holding = null; this.sp = 0;
     }
     reset(full) {
-        if(full) this.stock = 3;
+        if(full) { this.stock = 3; this.sp = 0; }
         this.damage = 0; this.x = this.startX; this.y = 350; this.holding = null;
         this.oldY = 350; this.vx = 0; this.vy = 0; this.dir = (this.x < 550) ? 1 : -1;
         this.jumps = 0; this.isAtk = false;
@@ -122,15 +125,27 @@ class Fighter {
         this.el.style.left = this.x + "px"; this.el.style.bottom = this.y + "px";
         this.el.style.transform = `scaleX(${this.dir})`;
         this.el.style.opacity = this.isInvincible ? 0.5 : 1;
+        
+        // UI更新
         document.getElementById(this.id+"-val").innerText = Math.floor(this.damage) + "%";
         document.getElementById(this.id+"-sub").innerText = "●".repeat(Math.max(0, this.stock));
         document.getElementById(this.id+"-holding").innerText = this.holding ? "ITEM: " + this.holding.toUpperCase() : "";
+        const spFill = document.getElementById(this.id+"-sp");
+        spFill.style.width = this.sp + "%";
+        spFill.style.background = this.sp >= 100 ? "#f1c40f" : "#3498db";
     }
 
     out() { this.stock--; if(this.stock <= 0) endGame(this.id==="p1"?"P2":"P1"); else { showEffect("K.O."); this.reset(false); } }
 
     attack(target) {
         if(this.isAtk) return;
+        
+        // SP技発動チェック
+        if(this.sp >= 100) {
+            this.useSuper(target);
+            return;
+        }
+
         if(this.holding === "bomb") { this.throwBomb(); return; }
         
         this.isAtk = true;
@@ -143,11 +158,41 @@ class Fighter {
         setTimeout(()=>this.isAtk=false, this.cd);
     }
 
+    useSuper(target) {
+        this.sp = 0;
+        this.isAtk = true;
+        showEffect("FINAL SMASH!!");
+        this.el.style.filter = "brightness(2) drop-shadow(0 0 10px gold)";
+
+        if(this.type === "fighter") {
+            // 衝撃波
+            setTimeout(() => {
+                const d = Math.sqrt((this.x-target.x)**2 + (this.y-target.y)**2);
+                if(d < 300) this.hit(target, 40, 3.0);
+                this.isAtk = false; this.el.style.filter = "";
+            }, 500);
+        } else if(this.type === "sword") {
+            // 高速突進
+            let steps = 0;
+            const dash = setInterval(() => {
+                this.vx = this.dir * 35;
+                if(Math.abs(this.x - target.x) < 80 && Math.abs(this.y - target.y) < 100) this.hit(target, 35, 2.5);
+                if(++steps > 15) { clearInterval(dash); this.isAtk = false; this.el.style.filter = ""; }
+            }, 20);
+        } else if(this.type === "gun") {
+            // 貫通レーザー
+            for(let i=0; i<5; i++) {
+                setTimeout(() => this.fireProjectile(15, 30, true), i * 100);
+            }
+            setTimeout(() => { this.isAtk = false; this.el.style.filter = ""; }, 600);
+        }
+    }
+
     throwBomb() {
         this.holding = null;
         const b = { 
             x: this.x + (this.dir * 10), y: this.y, vx: 0, vy: 0,
-            type: "bomb_active", timer: 120, range: 250, el: document.createElement("div"), // range 180 -> 250
+            type: "bomb_active", timer: 120, range: 250, el: document.createElement("div"), 
             hintEl: document.createElement("div")
         };
         b.el.className = "item"; b.el.style.background = "#333"; b.el.style.borderRadius = "50%"; b.el.innerText = "💣";
@@ -158,41 +203,23 @@ class Fighter {
         items.push(b);
     }
 
-    fireProjectile(pwr, speed) {
+    fireProjectile(pwr, speed, isSuper = false) {
         const p = { x: this.x + (this.dir*30), y: this.y + 25, vx: this.dir*speed, owner: this, pwr, el: document.createElement("div") };
-        p.el.className = "projectile"; p.el.style.background = "#ffff00";
+        p.el.className = "projectile";
+        p.el.style.background = isSuper ? "cyan" : "#ffff00";
+        if(isSuper) p.el.style.transform = "scale(3)";
         document.getElementById("game-stage").appendChild(p.el); projectiles.push(p);
     }
 
     hit(target, pwr, kbM) { 
         if(target.isInvincible) return; 
-        target.damage += pwr; 
+        target.damage += pwr;
+        this.sp = Math.min(100, this.sp + pwr * 1.5); // 攻撃側SP加算
+        target.sp = Math.min(100, target.sp + pwr * 0.8); // 被弾側SP加算
         const kb = ((target.damage / 8) + 8) * kbM; 
         target.vx = (target.x < this.x ? -1 : 1) * kb; 
         target.vy = kb * 0.3 + 5; 
     }
-}
-
-let p1 = new Fighter("p1", 300, "#3498db", "1P"), p2 = new Fighter("p2", 800, "#e74c3c", "2P");
-
-function setupStage() {
-    platforms = [{x: 150, y: 120, w: 800}, {x: 300, y: 280, w: 200}, {x: 600, y: 280, w: 200}];
-    const stageEl = document.getElementById("game-stage");
-    const toRemove = stageEl.querySelectorAll('.platform, .item, .projectile, .explosion-hint');
-    toRemove.forEach(el => el.remove());
-    platforms.forEach(p => {
-        const div = document.createElement("div"); div.className = "platform";
-        div.style.left = p.x + "px"; div.style.bottom = p.y + "px"; div.style.width = p.w + "px"; div.style.height = "15px";
-        stageEl.appendChild(div);
-    });
-}
-
-function breakCrate(it) {
-    const isBomb = Math.random() < 0.4;
-    it.type = isBomb ? "bomb_item" : "heal";
-    it.el.classList.remove("crate");
-    it.el.style.background = isBomb ? "#555" : "#2ecc71";
-    it.el.innerText = isBomb ? "💣" : "♥";
 }
 
 function startGame(m) {
@@ -205,14 +232,10 @@ function startGame(m) {
     const scheduleNextItem = () => {
         const delay = 8000 + Math.random() * 7000;
         itemTimer = setTimeout(() => {
-            if(isRunning) {
-                spawnCrate();
-                scheduleNextItem();
-            }
+            if(isRunning) { spawnCrate(); scheduleNextItem(); }
         }, delay);
     };
     scheduleNextItem();
-
     loop();
 }
 
@@ -224,7 +247,7 @@ function loop() {
     
     if(mode === "com") {
         const lvl = document.getElementById("com-lvl").value;
-        const comSpeed = parseFloat(document.getElementById("com-speed").value); // COMスピード取得
+        const comSpeed = parseFloat(document.getElementById("com-speed").value);
         const dist = Math.abs(p1.x - p2.x);
         const stageLeft = 150, stageRight = 950, mainFloorY = 120;
 
@@ -241,7 +264,7 @@ function loop() {
                 } else {
                     p2.vx += (p2.x < p1.x ? comSpeed * 0.7 : -comSpeed * 0.7);
                 }
-                if (dist < 120) p2.attack(p1);
+                if (dist < 120 || p2.sp >= 100) p2.attack(p1);
                 if (p1.y > p2.y + 50) p2.jump();
             }
         }
@@ -261,12 +284,9 @@ function loop() {
                 }
             });
         }
-
         it.vy -= 0.5; it.x += (it.vx || 0); it.y += it.vy; it.vx *= 0.98;
         platforms.forEach(pl => {
-            if(it.vy <= 0 && it.x > pl.x-20 && it.x < pl.x+pl.w && it.y <= pl.y && it.y > pl.y-20) { 
-                it.y = pl.y; it.vy = 0; it.vx = 0;
-            }
+            if(it.vy <= 0 && it.x > pl.x-20 && it.x < pl.x+pl.w && it.y <= pl.y && it.y > pl.y-20) { it.y = pl.y; it.vy = 0; it.vx = 0; }
         });
         it.el.style.left = it.x + "px"; it.el.style.bottom = it.y + "px";
 
@@ -277,7 +297,7 @@ function loop() {
             if(it.timer <= 0) {
                 [p1, p2].forEach(p => {
                     const d = Math.sqrt((p.x-it.x)**2 + (p.y-it.y)**2);
-                    if(d < it.range) { p.damage += 30; p.vx = (p.x < it.x ? -18 : 18); p.vy = 14; }
+                    if(d < it.range) { p.damage += 30; p.vx = (p.x < it.x ? -18 : 18); p.vy = 14; p.sp = Math.min(100, p.sp + 15); }
                 });
                 showEffect("BOOM!"); it.el.remove(); it.hintEl.remove(); items.splice(i, 1);
             }
@@ -291,20 +311,36 @@ function loop() {
             p.owner.hit(target, p.pwr, 1.1); p.el.remove(); projectiles.splice(i, 1);
         } else if(p.x < -200 || p.x > 1300) { p.el.remove(); projectiles.splice(i, 1); }
     });
-
     requestAnimationFrame(loop);
 }
 
+// 既存の補助関数群
+function setupStage() {
+    platforms = [{x: 150, y: 120, w: 800}, {x: 300, y: 280, w: 200}, {x: 600, y: 280, w: 200}];
+    const stageEl = document.getElementById("game-stage");
+    const toRemove = stageEl.querySelectorAll('.platform, .item, .projectile, .explosion-hint');
+    toRemove.forEach(el => el.remove());
+    platforms.forEach(p => {
+        const div = document.createElement("div"); div.className = "platform";
+        div.style.left = p.x + "px"; div.style.bottom = p.y + "px"; div.style.width = p.w + "px"; div.style.height = "15px";
+        stageEl.appendChild(div);
+    });
+}
+function breakCrate(it) {
+    const isBomb = Math.random() < 0.4;
+    it.type = isBomb ? "bomb_item" : "heal";
+    it.el.classList.remove("crate");
+    it.el.style.background = isBomb ? "#555" : "#2ecc71";
+    it.el.innerText = isBomb ? "💣" : "♥";
+}
 function spawnCrate() {
     if(document.getElementById("item-spawn").value === "off") return;
     const it = { x: 200 + Math.random()*700, y: 600, vy: 0, type: "crate", el: document.createElement("div") };
     it.el.className = "item crate"; it.el.innerText = "📦";
     document.getElementById("game-stage").appendChild(it.el); items.push(it);
 }
-
 function endGame(win) { 
-    isRunning = false; 
-    if(itemTimer) clearTimeout(itemTimer);
+    isRunning = false; if(itemTimer) clearTimeout(itemTimer);
     document.getElementById("result-screen").style.display = "flex"; 
     document.getElementById("winner-text").innerText = win + " WINS!"; 
 }
