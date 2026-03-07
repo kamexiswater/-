@@ -32,9 +32,9 @@
             border-radius: 2px; transition: transform 0.1s;
         }
         .projectile { position: absolute; width: 16px; height: 16px; border-radius: 50%; box-shadow: 0 0 10px white; z-index: 15; }
-        .item { position: absolute; width: 30px; height: 30px; z-index: 5; display: flex; justify-content: center; align-items: center; font-weight: bold; border-radius: 4px; }
+        .item { position: absolute; width: 34px; height: 34px; z-index: 5; display: flex; justify-content: center; align-items: center; font-weight: bold; border-radius: 4px; font-size: 20px; }
         .crate { background: #8b4513; border: 2px solid #5d2e0a; color: #ffd700; box-shadow: inset 0 0 5px #000; }
-        .bomb-timer { position: absolute; top: -10px; left: 0; height: 4px; background: red; width: 100%; border-radius: 2px; }
+        .bomb-timer { position: absolute; top: -8px; left: 0; height: 4px; background: #ff0000; width: 100%; border-radius: 2px; border: 1px solid #000; }
         .offscreen-indicator {
             position: absolute; padding: 5px 10px; border-radius: 15px; font-weight: bold; font-size: 12px;
             pointer-events: none; z-index: 50; display: none; border: 2px solid white;
@@ -60,7 +60,7 @@
             <div><select id="stage-select"><option value="random">ランダム</option><option value="final">終点</option><option value="small">小戦場</option><option value="battle" selected>戦場</option></select></div>
         </div>
         <div id="controls-guide"></div>
-        <div style="margin-top:10px;"><button onclick="startGame('com')">VS COM</button><button onclick="startGame('p2')">VS 2P</button></div>
+        <div style="margin-top:10px;"><button onclick="startGame('com')">VS COM (GOD)</button><button onclick="startGame('p2')">VS 2P</button></div>
     </div>
     <div id="result-screen" style="display:none;"><h1 id="winner-text"></h1><button onclick="location.reload()">タイトルへ</button></div>
     <div id="game-container">
@@ -184,11 +184,8 @@ class Fighter {
             if(Math.abs(this.x - target.x) < 90 && Math.abs(this.y - target.y) < 65) this.hit(target, this.meleeP, 1.75);
         } else { this.fireProjectile(this.projP, this.projS); }
 
-        // 木箱の破壊判定
         items.forEach(it => {
-            if(it.type === "crate" && Math.abs(this.x - it.x) < 80 && Math.abs(this.y - it.y) < 80) {
-                breakCrate(it);
-            }
+            if(it.type === "crate" && Math.abs(this.x - it.x) < 80 && Math.abs(this.y - it.y) < 80) breakCrate(it);
         });
 
         setTimeout(()=>this.isAtk=false, this.cd);
@@ -222,6 +219,31 @@ class Fighter {
     hit(target, pwr, kbM) { if(target.isInvincible || target.isGrabbing) return; target.damage += pwr; const kb = ((target.damage / 4) + 12) * kbM; target.vx = (target.x < this.x ? -1 : 1) * kb; target.vy = kb * 0.38 + 7; }
 }
 
+let p1 = new Fighter("p1", 350, "#3498db", "1P"), p2 = new Fighter("p2", 710, "#e74c3c", "2P");
+
+function setupStage() {
+    let stage = document.getElementById("stage-select").value; 
+    if(stage === "random") stage = ["final", "small", "battle"][Math.floor(Math.random() * 3)];
+    const stageEl = document.getElementById("game-stage"); 
+    platforms = [{x: 200, y: 120, w: 700}];
+    if(stage === "small") platforms.push({x: 300, y: 280, w: 150}, {x: 650, y: 280, w: 150});
+    if(stage === "battle") platforms.push({x: 300, y: 270, w: 150}, {x: 650, y: 270, w: 150}, {x: 475, y: 410, w: 150});
+    
+    const overlay = document.getElementById("overlay");
+    const p1ind = document.getElementById("p1-ind");
+    const p2ind = document.getElementById("p2-ind");
+    stageEl.innerHTML = ''; 
+    stageEl.append(overlay, p1ind, p2ind);
+    
+    platforms.forEach(p => {
+        const div = document.createElement("div"); 
+        div.className = "platform " + (p.y === 120 ? "main-floor" : "sub-platform");
+        div.style.left = p.x + "px"; div.style.bottom = p.y + "px"; div.style.width = p.w + "px"; 
+        div.style.height = (p.y === 120 ? "30px" : "12px"); 
+        stageEl.appendChild(div);
+    });
+}
+
 function breakCrate(it) {
     const types = ["bomb", "heal", "spear"];
     const newType = types[Math.floor(Math.random() * types.length)];
@@ -229,7 +251,7 @@ function breakCrate(it) {
     it.el.classList.remove("crate");
     if(newType === "bomb") {
         it.el.style.background = "#333"; it.el.style.borderRadius = "50%"; it.el.innerText = "💣";
-        it.timer = 180; // 約3秒
+        it.timer = 180;
         it.timerEl = document.createElement("div"); it.timerEl.className = "bomb-timer";
         it.el.appendChild(it.timerEl);
     } else if(newType === "heal") {
@@ -242,17 +264,45 @@ function breakCrate(it) {
 function spawnItem() {
     if(document.getElementById("item-spawn").value === "off") return;
     const sX = 250 + Math.random()*600;
-    const it = { x: sX, y: 700, vy: 0, type: "crate", el: document.createElement("div") };
+    const it = { x: sX, y: 700, vy: 0, type: "crate", el: document.createElement("div"), oldY: 700 };
     it.el.className = "item crate"; it.el.innerText = "📦";
     document.getElementById("game-stage").appendChild(it.el);
     items.push(it);
 }
 
+function startGame(m) { 
+    mode = m; projectiles = []; items = []; setupStage(); 
+    document.getElementById("menu").style.display = "none"; 
+    document.getElementById("game-container").style.display = "block"; 
+    p1.reset(true); p2.reset(true); 
+    isRunning = true; 
+    requestAnimationFrame(loop); 
+}
+
+function endGame(win) { isRunning = false; document.getElementById("result-screen").style.display = "flex"; document.getElementById("winner-text").innerText = win + " WINS!"; }
+
+window.addEventListener("keydown", e => { 
+    keys[e.code] = true; 
+    if(!isRunning) return; 
+    [p1, p2].forEach(p => { 
+        if(p === p2 && mode === "com") return; 
+        if(e.code === p.controls.up) p.jump(); 
+        if(e.code === p.controls.atk) p.attack(p===p1?p2:p1); 
+        if(e.code === p.controls.sp) p.useSP(p===p1?p2:p1); 
+    }); 
+});
+window.addEventListener("keyup", e => keys[e.code] = false);
+
 function loop() {
     if(!isRunning) return;
-    if(!p1.isGrabbing) { if(keys[p1.controls.left]) { p1.vx -= MOVE_ACCEL; p1.dir = -1; } if(keys[p1.controls.right]) { p1.vx += MOVE_ACCEL; p1.dir = 1; } }
     
-    // COM思考ルーチン (GOD)
+    // P1 Movement
+    if(!p1.isGrabbing) { 
+        if(keys[p1.controls.left]) { p1.vx -= MOVE_ACCEL; p1.dir = -1; } 
+        if(keys[p1.controls.right]) { p1.vx += MOVE_ACCEL; p1.dir = 1; } 
+    }
+    
+    // COM / P2 Movement
     if(mode==="com") {
         const lvl = parseInt(document.getElementById("com-lvl").value);
         const dist = Math.abs(p1.x - p2.x), yDist = Math.abs(p1.y - p2.y);
@@ -266,11 +316,16 @@ function loop() {
             if (p1.y > p2.y + 50 || (lvl === 10 && Math.random() < 0.03)) p2.jump();
             if(lvl >= 8 && p2.spReady && dist < 400 && Math.random() < 0.05) p2.useSP(p1);
         }
+    } else {
+        if(!p2.isGrabbing) { 
+            if(keys[p2.controls.left]) { p2.vx -= MOVE_ACCEL; p2.dir = -1; } 
+            if(keys[p2.controls.right]) { p2.vx += MOVE_ACCEL; p2.dir = 1; } 
+        }
     }
 
     p1.update(); p2.update();
 
-    // 飛び道具更新（やり対応）
+    // Projectiles
     projectiles.forEach((p, i) => {
         if(p.grav > 0) { p.vy -= p.grav; p.y += p.vy; p.el.style.transform = `rotate(${Math.atan2(-p.vy, p.vx*p.owner.dir)}rad)`; }
         p.x += p.vx; p.el.style.left = p.x+"px"; p.el.style.bottom = p.y+"px";
@@ -279,7 +334,6 @@ function loop() {
             if(!target.isInvincible && !target.isGrabbing) p.owner.hit(target, p.pwr, 1.2);
             p.el.remove(); projectiles.splice(i, 1);
         } else if(p.x < -500 || p.x > 1600 || p.y < -100) { p.el.remove(); projectiles.splice(i, 1); }
-        // 箱への当たり判定
         items.forEach(it => {
             if(it.type === "crate" && Math.abs(p.x - it.x) < 30 && Math.abs(p.y - it.y) < 30) {
                 breakCrate(it); p.el.remove(); projectiles.splice(i, 1);
@@ -287,10 +341,10 @@ function loop() {
         });
     });
 
-    // アイテム出現タイミング (15~30秒)
-    if(Math.random() < 0.001) spawnItem();
+    // Item Spawn (1/1200 chance per frame ≈ 15-30 sec)
+    if(Math.random() < 0.0008) spawnItem();
 
-    // アイテム更新
+    // Items
     items.forEach((it, i) => {
         it.vy -= 0.2; it.y += it.vy; 
         platforms.forEach(pl => { if(it.vy <= 0 && it.x > pl.x-20 && it.x < pl.x+pl.w && it.oldY >= pl.y && it.y <= pl.y) { it.y = pl.y; it.vy = 0; } });
@@ -310,20 +364,17 @@ function loop() {
                     let amt = p.damage < 100 ? 25 : (p.damage < 200 ? 50 : 75);
                     p.damage = Math.max(0, p.damage - amt); showEffect("RECOVERY!");
                 } else if(it.type === "spear") {
-                    p.fireProjectile(20, 15, 12, 0.4); // 槍を投げる
+                    p.fireProjectile(20, 15, 12, 0.4);
                 }
                 it.el.remove(); items.splice(i, 1);
             }
         });
         if(it.y < -100) { it.el.remove(); items.splice(i, 1); }
     });
+
     requestAnimationFrame(loop);
 }
 
-// 他の関数（startGame, setupStageなど）は以前と同じ
-let p1_inst = p1, p2_inst = p2;
-function startGame(m) { mode = m; projectiles = []; items = []; setupStage(); document.getElementById("menu").style.display = "none"; document.getElementById("game-container").style.display = "block"; p1.reset(true); p2.reset(true); isRunning = true; loop(); }
-function endGame(win) { isRunning = false; document.getElementById("result-screen").style.display = "flex"; document.getElementById("winner-text").innerText = win + " WINS!"; }
 function showEffect(t) { const o = document.getElementById("overlay"); o.innerText = t; setTimeout(()=>o.innerText="", 1200); }
 </script>
 </body>
