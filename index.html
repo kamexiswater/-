@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Browser Smash - Ledge & Item Guide Edition</title>
+    <title>Browser Smash - Fixed COM Logic</title>
     <style>
         body { margin: 0; background: #1a1a1a; color: white; font-family: sans-serif; text-align: center; overflow: hidden; }
         #menu, #result-screen {
@@ -34,7 +34,6 @@
         .projectile { position: absolute; width: 16px; height: 16px; border-radius: 50%; box-shadow: 0 0 10px white; z-index: 15; }
         .item { position: absolute; width: 25px; height: 25px; border-radius: 5px; border: 2px solid #fff; z-index: 5; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 18px; }
         
-        /* アイテム予告用スタイル */
         .item-warning { position: absolute; top: 10px; width: 34px; height: 34px; color: white; font-weight: bold; font-size: 22px; border-radius: 50%; display: flex; justify-content: center; align-items: center; animation: blink 0.25s infinite alternate; z-index: 20; border: 2px solid white; }
         .item-guide-line { position: absolute; top: 0; width: 2px; height: 100%; z-index: 4; }
         @keyframes blink { from { opacity: 1; } to { opacity: 0.3; } }
@@ -127,7 +126,6 @@ class Fighter {
         }
         this.oldY = this.y; this.vy -= GRAVITY; this.x += this.vx; this.y += this.vy; this.vx *= FRICTION;
 
-        // 崖つかみ判定
         if (this.vy < 2 && this.ledgeTimer <= 0) {
             const ledgeY = 120;
             if (Math.abs(this.y - ledgeY) < 15) {
@@ -201,12 +199,30 @@ function loop() {
     
     if(mode==="com") {
         const lvl = parseInt(document.getElementById("com-lvl").value);
-        if (p2.isGrabbing) { if (Math.random() < 0.05) p2.jump(); }
-        else if (p2.x < 180 || p2.x > 920) { p2.vx += (p2.x < 550 ? 0.9 : -0.9); if (p2.vy < -1) p2.jump(); }
-        else {
-            let targetX = p1.x + (p1.x > p2.x ? -30 : 30); p2.vx += (p2.x < targetX ? 0.6 + lvl*0.06 : -0.6 - lvl*0.06);
-            if(Math.abs(p1.x-p2.x) < 130 && Math.random() < (0.02 * lvl)) p2.attack(p1);
-            if(lvl >= 8 && p2.spReady && Math.abs(p1.x-p2.x) < 400 && Math.random() < 0.1) p2.useSP(p1);
+        const dist = Math.abs(p1.x - p2.x);
+        const yDist = Math.abs(p1.y - p2.y);
+
+        if (p2.isGrabbing) { 
+            if (Math.random() < 0.05) p2.jump(); 
+        } else if (p2.x < 180 || p2.x > 920) { 
+            p2.vx += (p2.x < 550 ? 0.9 : -0.9); 
+            if (p2.vy < -1) p2.jump(); 
+        } else {
+            // 攻撃判定を移動より優先
+            if(dist < 130 && yDist < 70) {
+                if(Math.random() < (0.02 * lvl)) p2.attack(p1);
+            }
+            
+            // 移動ロジック：ターゲットに近すぎる場合は入力を止めて「震え」を防止
+            if (dist > 40) {
+                let targetX = p1.x + (p1.x > p2.x ? -30 : 30);
+                p2.vx += (p2.x < targetX ? 0.6 + lvl*0.06 : -0.6 - lvl*0.06);
+            }
+            
+            // 復帰・追撃ジャンプ
+            if (p1.y > p2.y + 50 && Math.random() < 0.05) p2.jump();
+            
+            if(lvl >= 8 && p2.spReady && dist < 400 && Math.random() < 0.1) p2.useSP(p1);
         }
     } else { if(!p2.isGrabbing) { if(keys[p2.controls.left]) { p2.vx -= MOVE_ACCEL; p2.dir = -1; } if(keys[p2.controls.right]) { p2.vx += MOVE_ACCEL; p2.dir = 1; } } }
 
@@ -219,7 +235,6 @@ function loop() {
         else if(p.x < -400 || p.x > 1500) { p.el.remove(); projectiles.splice(i, 1); }
     });
 
-    // アイテム出現と事前告知の実装
     if(document.getElementById("item-spawn").value === "on" && Math.random() < 0.006) {
         const isBomb = Math.random() < 0.6;
         const spawnX = 250 + Math.random()*600;
@@ -253,8 +268,6 @@ function loop() {
     items.forEach((it, i) => {
         it.vy -= 0.07; it.y += it.vy; 
         it.el.style.left = it.x+"px"; it.el.style.bottom = it.y+"px";
-        
-        // アイテムが画面内に入ったら予告を消す
         if(it.y < 580) { if(it.warnEl) it.warnEl.remove(); if(it.guideEl) it.guideEl.remove(); }
         
         [p1, p2].forEach(p => {
