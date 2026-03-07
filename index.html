@@ -16,10 +16,9 @@
         #game-container { display: none; }
         #ui-container { margin-top: 5px; display: flex; justify-content: center; gap: 20px; }
         
-        /* UIの縁の色を個別に設定 */
         .status-card { background: rgba(0,0,0,0.8); padding: 8px; border-radius: 10px; min-width: 150px; border: 3px solid #444; }
-        #card-p1 { border-color: #2e86de; } /* P1: 青 */
-        #card-p2 { border-color: #ff4757; } /* P2: 赤 */
+        #card-p1 { border-color: #2e86de; } 
+        #card-p2 { border-color: #ff4757; } 
         
         .damage-percent { font-size: 28px; font-weight: bold; margin: 2px 0; }
         .sp-bar-bg { width: 100%; height: 8px; background: #444; border-radius: 4px; overflow: hidden; margin-top: 5px; border: 1px solid #000; }
@@ -32,6 +31,15 @@
         }
         .platform { position: absolute; background: #444; border-bottom: 5px solid #222; border-radius: 4px; z-index: 1; }
         .player { position: absolute; width: 40px; height: 60px; z-index: 10; transition: filter 0.1s; }
+        
+        /* 武器（剣）のスタイル */
+        .weapon-sword {
+            position: absolute; width: 6px; height: 45px; background: #ccc;
+            border: 1px solid #333; left: 45px; top: 15px; border-radius: 2px;
+            transform-origin: bottom center; transform: rotate(20deg);
+            box-shadow: 0 0 5px rgba(255,255,255,0.5);
+        }
+        
         .projectile { position: absolute; width: 16px; height: 16px; border-radius: 50%; box-shadow: 0 0 10px white; z-index: 15; }
         .item { position: absolute; width: 34px; height: 34px; z-index: 5; display: flex; justify-content: center; align-items: center; font-weight: bold; border-radius: 4px; font-size: 20px; }
         .crate { background: #8b4513; border: 2px solid #5d2e0a; color: #ffd700; }
@@ -50,17 +58,9 @@
             <div>操作: <select id="style2" onchange="updateGuide()"><option value="arrow" selected>矢印設定</option><option value="wasd">WASD設定</option></select></div>
             <strong>【設定】</strong><strong>【COM設定】</strong>
             <div>アイテム: <select id="item-spawn"><option value="on" selected>ON</option><option value="off">OFF</option></select></div>
-            <div>思考Lv: <select id="com-lvl">
-                <option value="1">Lv.1</option>
-                <option value="3">Lv.3</option>
-                <option value="max" selected>Lv.MAX</option>
-            </select></div>
+            <div>思考Lv: <select id="com-lvl"><option value="1">Lv.1</option><option value="3">Lv.3</option><option value="max" selected>Lv.MAX</option></select></div>
             <div></div>
-            <div>移動速: <select id="com-speed">
-                <option value="0.7">おそい</option>
-                <option value="1.15" selected>ふつう</option>
-                <option value="1.8">はやい</option>
-            </select></div>
+            <div>移動速: <select id="com-speed"><option value="0.7">おそい</option><option value="1.15" selected>ふつう</option><option value="1.8">はやい</option></select></div>
         </div>
         <div id="controls-guide"></div>
         <div style="margin-top:10px;"><button onclick="startGame('com')">VS COM</button><button onclick="startGame('p2')">VS 2P</button></div>
@@ -101,7 +101,7 @@ class Fighter {
     constructor(id, x, color, label) {
         this.id = id; this.startX = x; this.color = color; this.label = label;
         this.el = null; this.holding = null; this.sp = 0;
-        this.isCom = false; // COMかどうかを判別
+        this.isCom = false;
     }
     reset(full) {
         if(full) { this.stock = 3; this.sp = 0; }
@@ -120,10 +120,17 @@ class Fighter {
             this.el.className = `player`;
             document.getElementById("game-stage").appendChild(this.el);
         }
-        this.el.innerHTML = `<div style="position:absolute;top:-25px;width:100%;text-align:center;font-size:11px;">${this.label}</div>
-                             <div style="width:20px;height:20px;background:#ffd1a4;border-radius:50%;margin:0 auto;border:2px solid #000;"></div>
-                             <div style="width:22px;height:30px;background:${this.color};margin:-2px auto;border:2px solid #000;border-radius:4px;"></div>`;
+        
+        // 剣タイプなら剣のビジュアルを追加
+        const swordHtml = this.type === "sword" ? `<div class="weapon-sword" id="${this.id}-sword"></div>` : "";
+        
+        this.el.innerHTML = `
+            <div style="position:absolute;top:-25px;width:100%;text-align:center;font-size:11px;">${this.label}</div>
+            <div style="width:20px;height:20px;background:#ffd1a4;border-radius:50%;margin:0 auto;border:2px solid #000;"></div>
+            <div style="width:22px;height:30px;background:${this.color};margin:-2px auto;border:2px solid #000;border-radius:4px;"></div>
+            ${swordHtml}`;
     }
+    
     jump() { if(this.jumps < 2) { this.vy = 15; this.jumps++; } }
     
     update() {
@@ -138,6 +145,12 @@ class Fighter {
             this.el.style.left = this.x + "px"; this.el.style.bottom = this.y + "px";
             this.el.style.transform = `scaleX(${this.dir})`;
             this.el.style.opacity = this.isInvincible ? 0.5 : 1;
+            
+            // 攻撃アニメーション（剣を振る）
+            if(this.type === "sword") {
+                const sEl = document.getElementById(this.id + "-sword");
+                if(sEl) sEl.style.transform = this.isAtk ? "rotate(130deg)" : "rotate(20deg)";
+            }
         }
         
         document.getElementById(this.id+"-val").innerText = Math.floor(this.damage) + "%";
@@ -157,7 +170,7 @@ class Fighter {
         this.isAtk = true;
         if(this.type === "gun") { this.fireProjectile(7, 22); }
         else {
-            const reach = this.type === "sword" ? 110 : 80;
+            const reach = this.type === "sword" ? 115 : 80;
             if(Math.abs(this.x - target.x) < reach && Math.abs(this.y - target.y) < 70) this.hit(target, this.meleeP, 1.4);
         }
         items.forEach(it => { if(it.type === "crate" && Math.abs(this.x - it.x) < 80 && Math.abs(this.y - it.y) < 60) breakCrate(it); });
@@ -165,9 +178,7 @@ class Fighter {
     }
 
     trySuper(target) {
-        if(this.sp >= 100 && !this.isAtk) {
-            this.useSuper(target);
-        }
+        if(this.sp >= 100 && !this.isAtk) this.useSuper(target);
     }
 
     useSuper(target) {
@@ -182,20 +193,28 @@ class Fighter {
                 if(d < 300) this.hit(target, 45, 3.2);
                 this.isAtk = false; this.el.style.filter = "";
             }, 500);
-        } else if(this.type === "sword") {
-            let steps = 0;
-            const dash = setInterval(() => {
-                // COMの場合、ステージの端(150~950)に近づいたらダッシュを止める（自滅防止）
-                if (this.isCom && (this.x < 180 || this.x > 920)) {
-                    this.vx = 0;
-                } else {
-                    this.vx = this.dir * 38;
-                }
+        } 
+        else if(this.type === "sword") {
+            // 新SP技: 回転斬り (Cyclone Slash)
+            let rot = 0;
+            const cyclone = setInterval(() => {
+                rot += 45;
+                const sEl = document.getElementById(this.id + "-sword");
+                if(sEl) sEl.style.transform = `rotate(${rot}deg) scale(1.5)`;
                 
-                if(Math.abs(this.x - target.x) < 90 && Math.abs(this.y - target.y) < 100) this.hit(target, 38, 2.8);
-                if(++steps > 15) { clearInterval(dash); this.isAtk = false; this.el.style.filter = ""; }
-            }, 20);
-        } else if(this.type === "gun") {
+                // 周囲への当たり判定
+                const d = Math.sqrt((this.x - target.x)**2 + (this.y - target.y)**2);
+                if(d < 160) this.hit(target, 12, 1.8); // 多段ヒット
+
+                if(rot >= 1080) { // 3回転
+                    clearInterval(cyclone);
+                    this.isAtk = false;
+                    this.el.style.filter = "";
+                    if(sEl) sEl.style.transform = "rotate(20deg) scale(1)";
+                }
+            }, 30);
+        } 
+        else if(this.type === "gun") {
             for(let i=0; i<6; i++) {
                 setTimeout(() => this.fireProjectile(15, 35, true), i * 100);
             }
@@ -237,44 +256,31 @@ class Fighter {
     }
 }
 
-// 初期化：P1は青、P2は赤
 p1 = new Fighter("p1", 300, "#2e86de", "P1");
 p2 = new Fighter("p2", 800, "#ff4757", "P2");
 
 function startGame(m) {
     if(itemTimer) clearTimeout(itemTimer);
-    mode = m; items = []; projectiles = []; 
-    setupStage();
+    mode = m; items = []; projectiles = []; setupStage();
     document.getElementById("menu").style.display = "none";
     document.getElementById("game-container").style.display = "block";
-    
-    // モードによってCOMフラグを設定
-    p1.isCom = false;
-    p2.isCom = (m === "com");
-
+    p1.isCom = false; p2.isCom = (m === "com");
     p1.reset(true); p2.reset(true); isRunning = true; 
-    
     const scheduleNextItem = () => {
-        const delay = 7000 + Math.random() * 6000;
         itemTimer = setTimeout(() => {
             if(isRunning) { spawnCrate(); scheduleNextItem(); }
-        }, delay);
+        }, 7000 + Math.random() * 6000);
     };
-    scheduleNextItem();
-    loop();
+    scheduleNextItem(); loop();
 }
 
 function loop() {
     if(!isRunning) return;
-
     if(keys[p1.controls.left]) { p1.vx -= MOVE_ACCEL; p1.dir = -1; }
     if(keys[p1.controls.right]) { p1.vx += MOVE_ACCEL; p1.dir = 1; }
-    
     if(mode === "com") {
         const lvl = document.getElementById("com-lvl").value;
         const comSpeed = parseFloat(document.getElementById("com-speed").value);
-        const dist = Math.abs(p1.x - p2.x);
-        
         if (p2.x < 150 || p2.x > 950 || p2.y < 120) {
             p2.vx += (p2.x < 550 ? comSpeed : -comSpeed);
             if (p2.vy < 0) p2.jump();
@@ -282,18 +288,9 @@ function loop() {
             let decisionChance = lvl === "max" ? 0.9 : (lvl === "3" ? 0.06 : 0.02);
             if (Math.random() < decisionChance) {
                 p2.vx += (p2.x < p1.x ? comSpeed * 0.75 : -comSpeed * 0.75);
-                // 攻撃判断（SP技含む）
-                if (dist < 130) {
-                    if (p2.sp >= 100) {
-                        // 剣タイプの場合、自分がステージ端を背負っている時はSPを使わない（安全策）
-                        if (p2.type !== "sword" || (p2.x > 250 && p2.x < 850)) {
-                            p2.trySuper(p1);
-                        } else {
-                            p2.attack(p1);
-                        }
-                    } else {
-                        p2.attack(p1);
-                    }
+                if (Math.abs(p1.x - p2.x) < 130) {
+                    if (p2.sp >= 100) p2.trySuper(p1);
+                    else p2.attack(p1);
                 }
                 if (p1.y > p2.y + 60) p2.jump();
             }
@@ -302,9 +299,7 @@ function loop() {
         if(keys[p2.controls.left]) { p2.vx -= MOVE_ACCEL; p2.dir = -1; }
         if(keys[p2.controls.right]) { p2.vx += MOVE_ACCEL; p2.dir = 1; }
     }
-
     p1.update(); p2.update();
-
     items.forEach((it, i) => {
         if(it.type !== "bomb_active") {
             [p1, p2].forEach(p => {
@@ -319,7 +314,6 @@ function loop() {
             if(it.vy <= 0 && it.x > pl.x-20 && it.x < pl.x+pl.w && it.y <= pl.y && it.y > pl.y-20) { it.y = pl.y; it.vy = 0; it.vx = 0; }
         });
         it.el.style.left = it.x + "px"; it.el.style.bottom = it.y + "px";
-
         if(it.type === "bomb_active") {
             it.timer--;
             it.hintEl.style.left = it.x + "px"; it.hintEl.style.bottom = it.y + "px";
@@ -333,7 +327,6 @@ function loop() {
             }
         }
     });
-
     projectiles.forEach((p, i) => {
         p.x += p.vx; p.el.style.left = p.x + "px"; p.el.style.bottom = p.y + "px";
         let target = p.owner === p1 ? p2 : p1;
@@ -368,22 +361,15 @@ function spawnCrate() {
     it.el.className = "item crate"; it.el.innerText = "📦";
     document.getElementById("game-stage").appendChild(it.el); items.push(it);
 }
-function endGame(win) { 
-    isRunning = false; if(itemTimer) clearTimeout(itemTimer);
-    document.getElementById("result-screen").style.display = "flex"; 
-    document.getElementById("winner-text").innerText = win + " WINS!"; 
-}
+function endGame(win) { isRunning = false; if(itemTimer) clearTimeout(itemTimer); document.getElementById("result-screen").style.display = "flex"; document.getElementById("winner-text").innerText = win + " WINS!"; }
 function showEffect(t) { const o = document.getElementById("overlay"); o.innerText = t; setTimeout(()=>o.innerText="", 1000); }
 
 window.addEventListener("keydown", e => {
     keys[e.code] = true;
     if(isRunning) {
-        // P1 操作
         if(e.code === p1.controls.up) p1.jump();
         if(e.code === p1.controls.atk) p1.attack(p2);
         if(e.code === p1.controls.sp) p1.trySuper(p2);
-
-        // P2 操作
         if(mode === "p2") {
             if(e.code === p2.controls.up) p2.jump();
             if(e.code === p2.controls.atk) p2.attack(p1);
