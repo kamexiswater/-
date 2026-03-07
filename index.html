@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Browser Smash - Multi-Level Edition SP</title>
+    <title>Browser Smash - Multi-Level Edition SP Fixed</title>
     <style>
         body { margin: 0; background: #1a1a1a; color: white; font-family: sans-serif; text-align: center; overflow: hidden; }
         #menu, #result-screen {
@@ -17,7 +17,6 @@
         #ui-container { margin-top: 5px; display: flex; justify-content: center; gap: 20px; }
         .status-card { background: rgba(0,0,0,0.8); padding: 8px; border-radius: 10px; border: 2px solid #444; min-width: 150px; }
         .damage-percent { font-size: 28px; font-weight: bold; margin: 2px 0; }
-        /* SPゲージのスタイル */
         .sp-bar-bg { width: 100%; height: 8px; background: #444; border-radius: 4px; overflow: hidden; margin-top: 5px; border: 1px solid #000; }
         .sp-bar-fill { width: 0%; height: 100%; background: #3498db; transition: width 0.2s; box-shadow: 0 0 5px #3498db; }
         
@@ -47,9 +46,9 @@
             <strong>【設定】</strong><strong>【COM設定】</strong>
             <div>アイテム: <select id="item-spawn"><option value="on" selected>ON</option><option value="off">OFF</option></select></div>
             <div>思考Lv: <select id="com-lvl">
-                <option value="1">Lv.1 (のんびり)</option>
-                <option value="3">Lv.3 (ふつう)</option>
-                <option value="max" selected>Lv.MAX (GOD)</option>
+                <option value="1">Lv.1</option>
+                <option value="3">Lv.3</option>
+                <option value="max" selected>Lv.MAX</option>
             </select></div>
             <div></div>
             <div>移動速: <select id="com-speed">
@@ -76,11 +75,12 @@
 const GRAVITY = 0.62, FRICTION = 0.90, MOVE_ACCEL = 1.15;
 let mode = "p2", isRunning = false, projectiles = [], items = [], keys = {}, platforms = [];
 let itemTimer = null;
+let p1, p2;
 
 function updateGuide() {
     const s1 = document.getElementById("style1").value;
     const s2 = document.getElementById("style2").value;
-    const guide = (s) => s === "wasd" ? "W:跳 A:左 D:右 F:攻/SP" : "↑:跳 ←:左 →:右 .:攻/SP";
+    const guide = (s) => s === "wasd" ? "W:跳 A:左 D:右 F:攻(満タンでSP)" : "↑:跳 ←:左 →:右 .:攻(満タンでSP)";
     document.getElementById("controls-guide").innerHTML = `P1 [${s1.toUpperCase()}]: ${guide(s1)}<br>P2 [${s2.toUpperCase()}]: ${guide(s2)}`;
 }
 updateGuide();
@@ -92,8 +92,8 @@ const getControls = (id) => {
 
 class Fighter {
     constructor(id, x, color, label) {
-        this.id = id; this.el = null; this.startX = x; this.color = color; this.label = label;
-        this.holding = null; this.sp = 0;
+        this.id = id; this.startX = x; this.color = color; this.label = label;
+        this.el = null; this.holding = null; this.sp = 0;
     }
     reset(full) {
         if(full) { this.stock = 3; this.sp = 0; }
@@ -105,9 +105,13 @@ class Fighter {
         this.type = document.getElementById(this.id==="p1"?"type1":"type2").value;
         const stats = { fighter: [12, 350], sword: [10, 280], gun: [7, 120] };
         [this.meleeP, this.cd] = stats[this.type];
-        if(!this.el) { this.el = document.createElement("div"); this.el.id = this.id; }
-        document.getElementById("game-stage").appendChild(this.el);
-        this.el.className = `player type-${this.type}`;
+        
+        if(!this.el) {
+            this.el = document.createElement("div");
+            this.el.id = this.id;
+            this.el.className = `player`;
+            document.getElementById("game-stage").appendChild(this.el);
+        }
         this.el.innerHTML = `<div style="position:absolute;top:-25px;width:100%;text-align:center;font-size:11px;">${this.label}</div>
                              <div style="width:20px;height:20px;background:#ffd1a4;border-radius:50%;margin:0 auto;border:2px solid #000;"></div>
                              <div style="width:22px;height:30px;background:${this.color};margin:-2px auto;border:2px solid #000;border-radius:4px;"></div>`;
@@ -122,11 +126,12 @@ class Fighter {
             }
         });
         if (this.x < -400 || this.x > 1500 || this.y < -500) this.out();
-        this.el.style.left = this.x + "px"; this.el.style.bottom = this.y + "px";
-        this.el.style.transform = `scaleX(${this.dir})`;
-        this.el.style.opacity = this.isInvincible ? 0.5 : 1;
+        if(this.el) {
+            this.el.style.left = this.x + "px"; this.el.style.bottom = this.y + "px";
+            this.el.style.transform = `scaleX(${this.dir})`;
+            this.el.style.opacity = this.isInvincible ? 0.5 : 1;
+        }
         
-        // UI更新
         document.getElementById(this.id+"-val").innerText = Math.floor(this.damage) + "%";
         document.getElementById(this.id+"-sub").innerText = "●".repeat(Math.max(0, this.stock));
         document.getElementById(this.id+"-holding").innerText = this.holding ? "ITEM: " + this.holding.toUpperCase() : "";
@@ -140,7 +145,7 @@ class Fighter {
     attack(target) {
         if(this.isAtk) return;
         
-        // SP技発動チェック
+        // SP技: ゲージ100%の時に攻撃キーが押されたら発動
         if(this.sp >= 100) {
             this.useSuper(target);
             return;
@@ -165,33 +170,30 @@ class Fighter {
         this.el.style.filter = "brightness(2) drop-shadow(0 0 10px gold)";
 
         if(this.type === "fighter") {
-            // 衝撃波
             setTimeout(() => {
                 const d = Math.sqrt((this.x-target.x)**2 + (this.y-target.y)**2);
-                if(d < 300) this.hit(target, 40, 3.0);
+                if(d < 300) this.hit(target, 45, 3.2);
                 this.isAtk = false; this.el.style.filter = "";
             }, 500);
         } else if(this.type === "sword") {
-            // 高速突進
             let steps = 0;
             const dash = setInterval(() => {
-                this.vx = this.dir * 35;
-                if(Math.abs(this.x - target.x) < 80 && Math.abs(this.y - target.y) < 100) this.hit(target, 35, 2.5);
+                this.vx = this.dir * 38;
+                if(Math.abs(this.x - target.x) < 90 && Math.abs(this.y - target.y) < 100) this.hit(target, 38, 2.8);
                 if(++steps > 15) { clearInterval(dash); this.isAtk = false; this.el.style.filter = ""; }
             }, 20);
         } else if(this.type === "gun") {
-            // 貫通レーザー
-            for(let i=0; i<5; i++) {
-                setTimeout(() => this.fireProjectile(15, 30, true), i * 100);
+            for(let i=0; i<6; i++) {
+                setTimeout(() => this.fireProjectile(15, 35, true), i * 100);
             }
-            setTimeout(() => { this.isAtk = false; this.el.style.filter = ""; }, 600);
+            setTimeout(() => { this.isAtk = false; this.el.style.filter = ""; }, 700);
         }
     }
 
     throwBomb() {
         this.holding = null;
         const b = { 
-            x: this.x + (this.dir * 10), y: this.y, vx: 0, vy: 0,
+            x: this.x + (this.dir * 10), y: this.y, vx: this.dir * 5, vy: 5,
             type: "bomb_active", timer: 120, range: 250, el: document.createElement("div"), 
             hintEl: document.createElement("div")
         };
@@ -207,30 +209,35 @@ class Fighter {
         const p = { x: this.x + (this.dir*30), y: this.y + 25, vx: this.dir*speed, owner: this, pwr, el: document.createElement("div") };
         p.el.className = "projectile";
         p.el.style.background = isSuper ? "cyan" : "#ffff00";
-        if(isSuper) p.el.style.transform = "scale(3)";
+        if(isSuper) p.el.style.transform = "scale(3.5)";
         document.getElementById("game-stage").appendChild(p.el); projectiles.push(p);
     }
 
     hit(target, pwr, kbM) { 
         if(target.isInvincible) return; 
         target.damage += pwr;
-        this.sp = Math.min(100, this.sp + pwr * 1.5); // 攻撃側SP加算
-        target.sp = Math.min(100, target.sp + pwr * 0.8); // 被弾側SP加算
-        const kb = ((target.damage / 8) + 8) * kbM; 
+        this.sp = Math.min(100, this.sp + pwr * 1.6);
+        target.sp = Math.min(100, target.sp + pwr * 0.9);
+        const kb = ((target.damage / 7) + 9) * kbM; 
         target.vx = (target.x < this.x ? -1 : 1) * kb; 
-        target.vy = kb * 0.3 + 5; 
+        target.vy = kb * 0.3 + 6; 
     }
 }
 
+// 初期化
+p1 = new Fighter("p1", 300, "#ff4757", "P1");
+p2 = new Fighter("p2", 800, "#2e86de", "P2");
+
 function startGame(m) {
-    if(itemTimer) clearInterval(itemTimer);
-    mode = m; items = []; projectiles = []; setupStage();
+    if(itemTimer) clearTimeout(itemTimer);
+    mode = m; items = []; projectiles = []; 
+    setupStage();
     document.getElementById("menu").style.display = "none";
     document.getElementById("game-container").style.display = "block";
     p1.reset(true); p2.reset(true); isRunning = true; 
     
     const scheduleNextItem = () => {
-        const delay = 8000 + Math.random() * 7000;
+        const delay = 7000 + Math.random() * 6000;
         itemTimer = setTimeout(() => {
             if(isRunning) { spawnCrate(); scheduleNextItem(); }
         }, delay);
@@ -249,23 +256,18 @@ function loop() {
         const lvl = document.getElementById("com-lvl").value;
         const comSpeed = parseFloat(document.getElementById("com-speed").value);
         const dist = Math.abs(p1.x - p2.x);
-        const stageLeft = 150, stageRight = 950, mainFloorY = 120;
-
-        if (p2.x < stageLeft - 20 || p2.x > stageRight + 20 || p2.y < mainFloorY - 20) {
+        
+        // COM復帰ロジック
+        if (p2.x < 150 || p2.x > 950 || p2.y < 120) {
             p2.vx += (p2.x < 550 ? comSpeed : -comSpeed);
             if (p2.vy < 0) p2.jump();
         } else {
-            let decisionChance = lvl === "max" ? 1.0 : (lvl === "3" ? 0.05 : 0.01);
+            let decisionChance = lvl === "max" ? 0.9 : (lvl === "3" ? 0.06 : 0.02);
             if (Math.random() < decisionChance) {
-                const crate = items.find(i => i.type === "crate");
-                if (crate && Math.random() < 0.3) {
-                    p2.vx += (p2.x < crate.x ? comSpeed * 0.7 : -comSpeed * 0.7);
-                    if (Math.abs(p2.x - crate.x) < 70) p2.attack(p1);
-                } else {
-                    p2.vx += (p2.x < p1.x ? comSpeed * 0.7 : -comSpeed * 0.7);
-                }
-                if (dist < 120 || p2.sp >= 100) p2.attack(p1);
-                if (p1.y > p2.y + 50) p2.jump();
+                p2.vx += (p2.x < p1.x ? comSpeed * 0.75 : -comSpeed * 0.75);
+                // 攻撃範囲内なら攻撃（SP溜まってればSPが出る）
+                if (dist < 130) p2.attack(p1);
+                if (p1.y > p2.y + 60) p2.jump();
             }
         }
     } else {
@@ -279,7 +281,7 @@ function loop() {
         if(it.type !== "bomb_active") {
             [p1, p2].forEach(p => {
                 if(Math.abs(p.x - it.x) < 40 && Math.abs(p.y - it.y) < 40) {
-                    if(it.type === "heal") { p.damage = Math.max(0, p.damage - 40); it.el.remove(); items.splice(i, 1); }
+                    if(it.type === "heal") { p.damage = Math.max(0, p.damage - 45); it.el.remove(); items.splice(i, 1); }
                     else if(it.type === "bomb_item" && !p.holding) { p.holding = "bomb"; it.el.remove(); items.splice(i, 1); }
                 }
             });
@@ -297,7 +299,7 @@ function loop() {
             if(it.timer <= 0) {
                 [p1, p2].forEach(p => {
                     const d = Math.sqrt((p.x-it.x)**2 + (p.y-it.y)**2);
-                    if(d < it.range) { p.damage += 30; p.vx = (p.x < it.x ? -18 : 18); p.vy = 14; p.sp = Math.min(100, p.sp + 15); }
+                    if(d < it.range) { p.damage += 35; p.vx = (p.x < it.x ? -20 : 20); p.vy = 16; p.sp = Math.min(100, p.sp + 15); }
                 });
                 showEffect("BOOM!"); it.el.remove(); it.hintEl.remove(); items.splice(i, 1);
             }
@@ -308,13 +310,12 @@ function loop() {
         p.x += p.vx; p.el.style.left = p.x + "px"; p.el.style.bottom = p.y + "px";
         let target = p.owner === p1 ? p2 : p1;
         if(Math.abs(p.x - target.x) < 40 && Math.abs(p.y - target.y) < 50) {
-            p.owner.hit(target, p.pwr, 1.1); p.el.remove(); projectiles.splice(i, 1);
-        } else if(p.x < -200 || p.x > 1300) { p.el.remove(); projectiles.splice(i, 1); }
+            p.owner.hit(target, p.pwr, 1.2); p.el.remove(); projectiles.splice(i, 1);
+        } else if(p.x < -300 || p.x > 1400) { p.el.remove(); projectiles.splice(i, 1); }
     });
     requestAnimationFrame(loop);
 }
 
-// 既存の補助関数群
 function setupStage() {
     platforms = [{x: 150, y: 120, w: 800}, {x: 300, y: 280, w: 200}, {x: 600, y: 280, w: 200}];
     const stageEl = document.getElementById("game-stage");
