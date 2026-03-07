@@ -66,11 +66,12 @@
 <script>
 const GRAVITY = 0.62, FRICTION = 0.90, MOVE_ACCEL = 1.15;
 let mode = "p2", isRunning = false, projectiles = [], items = [], keys = {}, platforms = [];
+let itemTimer = null;
 
 function updateGuide() {
     const s1 = document.getElementById("style1").value;
     const s2 = document.getElementById("style2").value;
-    const guide = (s) => s === "wasd" ? "W:跳 A:左 D:右 F:攻/投" : "↑:跳 ←:左 →:右 .:攻/投";
+    const guide = (s) => s === "wasd" ? "W:跳 A:左 D:右 F:攻/置" : "↑:跳 ←:左 →:右 .:攻/置";
     document.getElementById("controls-guide").innerHTML = `P1 [${s1.toUpperCase()}]: ${guide(s1)}<br>P2 [${s2.toUpperCase()}]: ${guide(s2)}`;
 }
 updateGuide();
@@ -132,7 +133,6 @@ class Fighter {
             const reach = this.type === "sword" ? 110 : 80;
             if(Math.abs(this.x - target.x) < reach && Math.abs(this.y - target.y) < 70) this.hit(target, this.meleeP, 1.4);
         }
-        // 木箱を殴る
         items.forEach(it => { if(it.type === "crate" && Math.abs(this.x - it.x) < 80 && Math.abs(this.y - it.y) < 60) breakCrate(it); });
         setTimeout(()=>this.isAtk=false, this.cd);
     }
@@ -140,7 +140,7 @@ class Fighter {
     throwBomb() {
         this.holding = null;
         const b = { 
-            x: this.x + (this.dir * 30), y: this.y + 30, vx: this.dir * 12, vy: 8, 
+            x: this.x + (this.dir * 10), y: this.y, vx: 0, vy: 0, // 投げずにその場に置く設定
             type: "bomb_active", timer: 120, range: 180, el: document.createElement("div"),
             hintEl: document.createElement("div")
         };
@@ -190,10 +190,25 @@ function breakCrate(it) {
 }
 
 function startGame(m) {
+    if(itemTimer) clearInterval(itemTimer);
     mode = m; items = []; projectiles = []; setupStage();
     document.getElementById("menu").style.display = "none";
     document.getElementById("game-container").style.display = "block";
-    p1.reset(true); p2.reset(true); isRunning = true; loop();
+    p1.reset(true); p2.reset(true); isRunning = true; 
+    
+    // アイテム出現タイマー: 15-30秒に2個程度 (平均11秒に1個)
+    const scheduleNextItem = () => {
+        const delay = 8000 + Math.random() * 7000; // 8〜15秒のランダム
+        itemTimer = setTimeout(() => {
+            if(isRunning) {
+                spawnCrate();
+                scheduleNextItem();
+            }
+        }, delay);
+    };
+    scheduleNextItem();
+
+    loop();
 }
 
 function loop() {
@@ -202,21 +217,17 @@ function loop() {
     if(keys[p1.controls.left]) { p1.vx -= MOVE_ACCEL; p1.dir = -1; }
     if(keys[p1.controls.right]) { p1.vx += MOVE_ACCEL; p1.dir = 1; }
     
-    // --- COMレベル別 AI ---
     if(mode === "com") {
         const lvl = document.getElementById("com-lvl").value;
         const dist = Math.abs(p1.x - p2.x);
         const stageLeft = 150, stageRight = 950, mainFloorY = 120;
 
-        // 復帰（全レベル共通だがGODはより正確）
         if (p2.x < stageLeft - 20 || p2.x > stageRight + 20 || p2.y < mainFloorY - 20) {
             p2.vx += (p2.x < 550 ? 1.2 : -1.2);
             if (p2.vy < 0) p2.jump();
         } else {
-            // レベルに応じた行動頻度
             let decisionChance = lvl === "max" ? 1.0 : (lvl === "3" ? 0.05 : 0.01);
             if (Math.random() < decisionChance) {
-                // 木箱があれば狙う
                 const crate = items.find(i => i.type === "crate");
                 if (crate && Math.random() < 0.3) {
                     p2.vx += (p2.x < crate.x ? 0.8 : -0.8);
@@ -237,7 +248,6 @@ function loop() {
 
     items.forEach((it, i) => {
         if(it.type !== "bomb_active") {
-            // アイテム拾い
             [p1, p2].forEach(p => {
                 if(Math.abs(p.x - it.x) < 40 && Math.abs(p.y - it.y) < 40) {
                     if(it.type === "heal") { p.damage = Math.max(0, p.damage - 40); it.el.remove(); items.splice(i, 1); }
@@ -246,12 +256,10 @@ function loop() {
             });
         }
 
-        // 物理計算
         it.vy -= 0.5; it.x += (it.vx || 0); it.y += it.vy; it.vx *= 0.98;
         platforms.forEach(pl => {
             if(it.vy <= 0 && it.x > pl.x-20 && it.x < pl.x+pl.w && it.y <= pl.y && it.y > pl.y-20) { 
-                it.y = pl.y; it.vy = it.type === "bomb_active" ? Math.abs(it.vy)*0.4 : 0; 
-                if(it.vy < 0.5) it.vy = 0;
+                it.y = pl.y; it.vy = 0; it.vx = 0;
             }
         });
         it.el.style.left = it.x + "px"; it.el.style.bottom = it.y + "px";
@@ -259,7 +267,7 @@ function loop() {
         if(it.type === "bomb_active") {
             it.timer--;
             it.hintEl.style.left = it.x + "px"; it.hintEl.style.bottom = it.y + "px";
-            if(it.timer < 40) it.hintEl.style.display = "block"; // 爆発直前に範囲表示
+            if(it.timer < 40) it.hintEl.style.display = "block";
             if(it.timer <= 0) {
                 [p1, p2].forEach(p => {
                     const d = Math.sqrt((p.x-it.x)**2 + (p.y-it.y)**2);
@@ -278,7 +286,6 @@ function loop() {
         } else if(p.x < -200 || p.x > 1300) { p.el.remove(); projectiles.splice(i, 1); }
     });
 
-    if(Math.random() < 0.005) spawnCrate();
     requestAnimationFrame(loop);
 }
 
@@ -289,7 +296,12 @@ function spawnCrate() {
     document.getElementById("game-stage").appendChild(it.el); items.push(it);
 }
 
-function endGame(win) { isRunning = false; document.getElementById("result-screen").style.display = "flex"; document.getElementById("winner-text").innerText = win + " WINS!"; }
+function endGame(win) { 
+    isRunning = false; 
+    if(itemTimer) clearTimeout(itemTimer);
+    document.getElementById("result-screen").style.display = "flex"; 
+    document.getElementById("winner-text").innerText = win + " WINS!"; 
+}
 function showEffect(t) { const o = document.getElementById("overlay"); o.innerText = t; setTimeout(()=>o.innerText="", 1000); }
 
 window.addEventListener("keydown", e => {
