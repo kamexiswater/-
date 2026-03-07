@@ -101,6 +101,7 @@ class Fighter {
     constructor(id, x, color, label) {
         this.id = id; this.startX = x; this.color = color; this.label = label;
         this.el = null; this.holding = null; this.sp = 0;
+        this.isCom = false; // COMかどうかを判別
     }
     reset(full) {
         if(full) { this.stock = 3; this.sp = 0; }
@@ -184,7 +185,13 @@ class Fighter {
         } else if(this.type === "sword") {
             let steps = 0;
             const dash = setInterval(() => {
-                this.vx = this.dir * 38;
+                // COMの場合、ステージの端(150~950)に近づいたらダッシュを止める（自滅防止）
+                if (this.isCom && (this.x < 180 || this.x > 920)) {
+                    this.vx = 0;
+                } else {
+                    this.vx = this.dir * 38;
+                }
+                
                 if(Math.abs(this.x - target.x) < 90 && Math.abs(this.y - target.y) < 100) this.hit(target, 38, 2.8);
                 if(++steps > 15) { clearInterval(dash); this.isAtk = false; this.el.style.filter = ""; }
             }, 20);
@@ -240,6 +247,11 @@ function startGame(m) {
     setupStage();
     document.getElementById("menu").style.display = "none";
     document.getElementById("game-container").style.display = "block";
+    
+    // モードによってCOMフラグを設定
+    p1.isCom = false;
+    p2.isCom = (m === "com");
+
     p1.reset(true); p2.reset(true); isRunning = true; 
     
     const scheduleNextItem = () => {
@@ -270,9 +282,18 @@ function loop() {
             let decisionChance = lvl === "max" ? 0.9 : (lvl === "3" ? 0.06 : 0.02);
             if (Math.random() < decisionChance) {
                 p2.vx += (p2.x < p1.x ? comSpeed * 0.75 : -comSpeed * 0.75);
+                // 攻撃判断（SP技含む）
                 if (dist < 130) {
-                    if (p2.sp >= 100) p2.trySuper(p1);
-                    else p2.attack(p1);
+                    if (p2.sp >= 100) {
+                        // 剣タイプの場合、自分がステージ端を背負っている時はSPを使わない（安全策）
+                        if (p2.type !== "sword" || (p2.x > 250 && p2.x < 850)) {
+                            p2.trySuper(p1);
+                        } else {
+                            p2.attack(p1);
+                        }
+                    } else {
+                        p2.attack(p1);
+                    }
                 }
                 if (p1.y > p2.y + 60) p2.jump();
             }
