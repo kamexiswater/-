@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Browser Smash - Balanced Edition</title>
+    <title>Browser Smash - GOD Edition</title>
     <style>
         body { margin: 0; background: #1a1a1a; color: white; font-family: sans-serif; text-align: center; overflow: hidden; }
         #menu, #result-screen {
@@ -25,7 +25,7 @@
         }
         .platform { position: absolute; background: #444; border-bottom: 5px solid #222; border-radius: 4px; z-index: 1; }
         .main-floor { background: #555; border-bottom: 10px solid #222; }
-        .player { position: absolute; width: 40px; height: 60px; z-index: 10; }
+        .player { position: absolute; width: 40px; height: 60px; z-index: 10; transition: filter 0.1s; }
         .sword-obj { 
             position: absolute; width: 6px; height: 45px; background: #bdc3c7; 
             border: 1px solid #fff; left: 45px; bottom: 10px; transform-origin: bottom center;
@@ -45,7 +45,7 @@
 </head>
 <body>
     <div id="menu">
-        <h1 style="color: #ff4757;">BROWSER SMASH</h1>
+        <h1 style="color: #ff4757;">BROWSER SMASH <span style="font-size:12px; color:gold;">GOD MODE</span></h1>
         <div class="config-grid">
             <strong>【P1】</strong><strong>【P2】</strong>
             <div>タイプ: <select id="type1"><option value="fighter">格闘</option><option value="sword">剣</option><option value="gun">銃</option></select></div>
@@ -61,7 +61,7 @@
             <div><select id="stage-select"><option value="random">ランダム</option><option value="final">終点</option><option value="small">小戦場</option><option value="battle" selected>戦場</option></select></div>
         </div>
         <div id="controls-guide"></div>
-        <div style="margin-top:10px;"><button onclick="startGame('com')">VS COM</button><button onclick="startGame('p2')">VS 2P</button></div>
+        <div style="margin-top:10px;"><button onclick="startGame('com')">VS COM (GOD)</button><button onclick="startGame('p2')">VS 2P</button></div>
     </div>
     <div id="result-screen" style="display:none;"><h1 id="winner-text"></h1><button onclick="location.reload()">タイトルへ</button></div>
     <div id="game-container">
@@ -198,21 +198,21 @@ class Fighter {
         this.spReady = false; 
         
         if(this.type === "fighter") {
-            // 格闘タイプ弱体化
-            showEffect("CHARGING...");
-            this.vx = 0;
-            this.el.style.filter = "brightness(3) drop-shadow(0 0 10px red)";
+            // 格闘タイプ：再強化（溜め0.25s、速度42）
+            showEffect("!!");
+            this.vx *= 0.2;
+            this.el.style.filter = "brightness(3) contrast(2) drop-shadow(0 0 15px #f00)";
             
             setTimeout(() => {
                 showEffect("ULTIMATE!");
                 this.el.style.filter = "";
-                this.vx = this.dir * 38;
+                this.vx = this.dir * 42;
                 setTimeout(() => { 
-                    if(Math.abs(this.x - target.x) < 110 && Math.abs(this.y - target.y) < 80) {
-                        this.hit(target, 35, 2.8);
+                    if(Math.abs(this.x - target.x) < 120 && Math.abs(this.y - target.y) < 90) {
+                        this.hit(target, 38, 3.0);
                     }
                 }, 100);
-            }, 500); 
+            }, 250); 
 
         } else if(this.type === "sword") {
             showEffect("ULTIMATE!");
@@ -221,7 +221,7 @@ class Fighter {
             showEffect("ULTIMATE!");
             for(let i=0; i<16; i++) setTimeout(() => this.fireProjectile(8, 30), i*40);
         }
-        setTimeout(() => this.spReady = true, 10000);
+        setTimeout(() => this.spReady = true, 9000);
     }
 
     hit(target, pwr, kbM) { if(target.isInvincible || target.isGrabbing) return; target.damage += pwr; const kb = ((target.damage / 4) + 12) * kbM; target.vx = (target.x < this.x ? -1 : 1) * kb; target.vy = kb * 0.38 + 7; }
@@ -251,21 +251,50 @@ window.addEventListener("keyup", e => keys[e.code] = false);
 function loop() {
     if(!isRunning) return;
     if(!p1.isGrabbing) { if(keys[p1.controls.left]) { p1.vx -= MOVE_ACCEL; p1.dir = -1; } if(keys[p1.controls.right]) { p1.vx += MOVE_ACCEL; p1.dir = 1; } }
+    
+    // COM思考ルーチン (GOD強化版)
     if(mode==="com") {
-        const lvl = parseInt(document.getElementById("com-lvl").value), dist = Math.abs(p1.x - p2.x), yDist = Math.abs(p1.y - p2.y), isP1Off = (p1.x < 180 || p1.x > 900);
-        if (p2.isGrabbing) { if (Math.random() < 0.05) p2.jump(); }
-        else if (p2.x < 150 || p2.x > 950) { p2.vx += (p2.x < 550 ? 0.9 : -0.9); if (p2.vy < -1 || p2.y < 100) p2.jump(); }
+        const lvl = parseInt(document.getElementById("com-lvl").value);
+        const dist = Math.abs(p1.x - p2.x);
+        const yDist = Math.abs(p1.y - p2.y);
+        const isP1Off = (p1.x < 190 || p1.x > 890);
+        const p1Attacking = (p1.isAtk);
+
+        if (p2.isGrabbing) { if (Math.random() < 0.1) p2.jump(); }
+        else if (p2.x < 150 || p2.x > 950 || p2.y < 100) { 
+            // 完璧な復帰
+            p2.vx += (p2.x < 550 ? 1.2 : -1.2); 
+            if (p2.vy < 0) p2.jump(); 
+        }
         else {
-            if (isP1Off && lvl >= 5) {
-                const edgeX = p1.x < 550 ? 210 : 870, toEdge = edgeX - p2.x;
-                p2.vx += (toEdge > 0 ? 0.7 : -0.7); p2.dir = (p1.x > p2.x) ? 1 : -1;
-                if (Math.abs(toEdge) < 50 && Math.random() < 0.05 * lvl) p2.attack(p1);
-            } else {
-                if(dist < 130 && yDist < 70 && Math.random() < (0.02 * lvl)) p2.attack(p1);
-                if (dist > 40) { let tX = p1.x + (p1.x > p2.x ? -30 : 30); p2.vx += (p2.x < tX ? 0.6 + lvl*0.06 : -0.6 - lvl*0.06); }
-                if (p1.y > p2.y + 60 && Math.random() < 0.05) p2.jump();
+            // GOD専用：超反応回避
+            if (lvl === 10 && p1Attacking && dist < 150 && Math.random() < 0.8) {
+                if (p2.jumps < 2) p2.jump();
+                p2.vx += (p2.x < p1.x ? -2 : 2);
             }
-            if(lvl >= 8 && p2.spReady && dist < 350 && Math.random() < 0.05) p2.useSP(p1);
+
+            if (isP1Off && lvl >= 5) {
+                // 復帰阻止：崖際で待ち構えて攻撃
+                const edgeX = p1.x < 550 ? 220 : 860;
+                const toEdge = edgeX - p2.x;
+                p2.vx += (toEdge > 0 ? 0.9 : -0.9);
+                p2.dir = (p1.x > p2.x) ? 1 : -1;
+                if (Math.abs(toEdge) < 40 && dist < 120) p2.attack(p1);
+            } else {
+                // 攻撃ロジック
+                if(dist < 140 && yDist < 80) {
+                    if(Math.random() < (0.05 * lvl)) p2.attack(p1);
+                }
+                // 移動：GODは常に有利な位置（頭上や背後）を取る
+                let tX = p1.x + (p1.x > p2.x ? -20 : 20);
+                if (lvl === 10) tX = p1.x + (p1.vx * 10); // プレイヤーの移動先を予測
+                p2.vx += (p2.x < tX ? 0.7 + lvl*0.08 : -0.7 - lvl*0.08);
+                
+                if (p1.y > p2.y + 50 || (lvl === 10 && Math.random() < 0.03)) p2.jump();
+            }
+            // SP使用：GODはコンボ中や確定状況で使う
+            const spChance = (lvl === 10) ? (dist < 400 && Math.random() < 0.08) : (dist < 350 && Math.random() < 0.05);
+            if(lvl >= 8 && p2.spReady && spChance) p2.useSP(p1);
         }
     } else { if(!p2.isGrabbing) { if(keys[p2.controls.left]) { p2.vx -= MOVE_ACCEL; p2.dir = -1; } if(keys[p2.controls.right]) { p2.vx += MOVE_ACCEL; p2.dir = 1; } } }
 
@@ -276,6 +305,7 @@ function loop() {
         if(Math.abs(p.x-target.x)<35 && Math.abs(p.y-(target.y+30))<40) { if(!target.isInvincible && !target.isGrabbing) p.owner.hit(target, p.pwr, 1.0); p.el.remove(); projectiles.splice(i, 1); } 
         else if(p.x < -500 || p.x > 1600) { p.el.remove(); projectiles.splice(i, 1); }
     });
+    // アイテム出現
     if(document.getElementById("item-spawn").value === "on" && Math.random() < 0.006) {
         const isB = Math.random() < 0.6, sX = 250 + Math.random()*600, col = isB ? "#ff4757" : "#2ecc71";
         const it = { x: sX, y: 750, vy: 0, type: isB ? "bomb" : "heal", el: document.createElement("div"), warnEl: document.createElement("div"), guideEl: document.createElement("div") };
