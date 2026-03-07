@@ -50,16 +50,19 @@
     <div id="menu">
         <h1 style="color: #4cd137;">BROWSER SMASH <span style="font-size:12px; color:gold;">GUNNER OVERLOAD -ULTIMATE AI-</span></h1>
         <div class="config-grid">
-            <strong>【P1】</strong><strong>【P2】</strong>
-            <div>タイプ: <select id="type1"><option value="gun" selected>銃(Range:Strong)</option><option value="fighter">格闘(Speed)</option><option value="sword">剣(Balance)</option></select></div>
-            <div>タイプ: <select id="type2"><option value="gun">銃(Range:Strong)</option><option value="fighter">格闘(Speed)</option><option value="sword" selected>剣(Balance)</option></select></div>
+            <strong>【P1設定】</strong><strong>【P2/COM設定】</strong>
+            <div>タイプ: <select id="type1"><option value="gun" selected>銃(Range)</option><option value="fighter">格闘(Speed)</option><option value="sword">剣(Balance)</option></select></div>
+            <div>タイプ: <select id="type2"><option value="gun">銃(Range)</option><option value="fighter">格闘(Speed)</option><option value="sword" selected>剣(Balance)</option></select></div>
+            
+            <div>移動速度: <select id="speed1"><option value="0.8">遅い</option><option value="1.4" selected>ふつう</option><option value="2.0">速い</option><option value="2.8">超速</option></select></div>
+            <div>移動速度: <select id="speed2"><option value="0.8">遅い</option><option value="1.4" selected>ふつう</option><option value="2.0">速い</option><option value="2.8">超速</option></select></div>
+
             <div>操作: <select id="style1" onchange="updateGuide()"><option value="wasd">WASD設定</option><option value="arrow">矢印設定</option></select></div>
             <div>操作: <select id="style2" onchange="updateGuide()"><option value="arrow" selected>矢印設定</option><option value="wasd">WASD設定</option></select></div>
-            <strong>【設定】</strong><strong>【COM設定】</strong>
+
+            <strong>【システム設定】</strong><strong>【AIレベル】</strong>
             <div>アイテム: <select id="item-spawn"><option value="on" selected>ON</option><option value="off">OFF</option></select></div>
             <div>思考Lv: <select id="com-lvl"><option value="1">Lv.1</option><option value="3">Lv.3</option><option value="max" selected>Lv.MAX</option></select></div>
-            <div></div>
-            <div>移動速: <select id="com-speed"><option value="0.7">おそい</option><option value="1.15" selected>ふつう</option><option value="1.8">はやい</option></select></div>
         </div>
         <div id="controls-guide"></div>
         <div style="margin-top:10px;"><button onclick="startGame('com')">VS COM</button><button onclick="startGame('p2')">VS 2P</button></div>
@@ -109,12 +112,14 @@ class Fighter {
         this.jumps = 0; this.isAtk = false;
         this.controls = getControls(this.id);
         this.isInvincible = true; setTimeout(() => this.isInvincible = false, 1500);
+        
         this.type = document.getElementById(this.id==="p1"?"type1":"type2").value;
+        const userSpeed = parseFloat(document.getElementById(this.id==="p1"?"speed1":"speed2").value);
         
         const stats = { 
-            fighter: [14, 280, 1.4, 16], 
-            sword: [10, 280, 1.15, 15], 
-            gun: [7, 350, 1.25, 15]
+            fighter: [14, 280, userSpeed, 16], 
+            sword: [10, 280, userSpeed * 0.85, 15], 
+            gun: [7, 350, userSpeed * 0.9, 15]
         };
         [this.meleeP, this.cd, this.accel, this.jumpV] = stats[this.type];
         
@@ -124,9 +129,7 @@ class Fighter {
             this.el.className = `player`;
             document.getElementById("game-stage").appendChild(this.el);
         }
-        
         const swordHtml = this.type === "sword" ? `<div class="weapon-sword" id="${this.id}-sword"></div>` : "";
-        
         this.el.innerHTML = `
             <div style="position:absolute;top:-25px;width:100%;text-align:center;font-size:11px;">${this.label}</div>
             <div style="width:20px;height:20px;background:#ffd1a4;border-radius:50%;margin:0 auto;border:2px solid #000;"></div>
@@ -148,7 +151,6 @@ class Fighter {
             this.el.style.left = this.x + "px"; this.el.style.bottom = this.y + "px";
             this.el.style.transform = `scaleX(${this.dir})`;
             this.el.style.opacity = this.isInvincible ? 0.5 : 1;
-            
             if(this.type === "sword") {
                 const sEl = document.getElementById(this.id + "-sword");
                 if(sEl) sEl.style.transform = this.isAtk ? "rotate(130deg)" : "rotate(20deg)";
@@ -156,7 +158,6 @@ class Fighter {
             if(this.type === "gun" && this.isAtk) this.el.style.filter = "drop-shadow(0 0 5px #ff0)";
             else if (!this.isAtk) this.el.style.filter = "";
         }
-        
         document.getElementById(this.id+"-val").innerText = Math.floor(this.damage) + "%";
         document.getElementById(this.id+"-sub").innerText = "●".repeat(Math.max(0, this.stock));
         document.getElementById(this.id+"-holding").innerText = this.holding ? "ITEM: " + this.holding.toUpperCase() : "";
@@ -170,14 +171,10 @@ class Fighter {
     attack(target) {
         if(this.isAtk) return;
         if(this.holding === "bomb") { this.throwBomb(); return; }
-        
         this.isAtk = true;
         if(this.type === "gun") { 
-            for(let i=0; i<3; i++) {
-                setTimeout(() => this.fireProjectile(this.meleeP, 22), i * 100);
-            }
-        }
-        else {
+            for(let i=0; i<3; i++) setTimeout(() => this.fireProjectile(this.meleeP, 22), i * 100);
+        } else {
             const reach = this.type === "sword" ? 115 : 75;
             if(Math.abs(this.x - target.x) < reach && Math.abs(this.y - target.y) < 70) {
                 const kb = this.type === "fighter" ? 1.6 : 1.4;
@@ -188,19 +185,14 @@ class Fighter {
         setTimeout(()=>this.isAtk=false, this.cd);
     }
 
-    trySuper(target) {
-        if(this.sp >= 100 && !this.isAtk) this.useSuper(target);
-    }
+    trySuper(target) { if(this.sp >= 100 && !this.isAtk) this.useSuper(target); }
 
     useSuper(target) {
-        this.sp = 0;
-        this.isAtk = true;
+        this.sp = 0; this.isAtk = true;
         this.el.style.filter = "brightness(2) drop-shadow(0 0 10px #4cd137)";
-
         if(this.type === "fighter") {
             showEffect("METEOR STRIKE!!");
-            const d = Math.sqrt((this.x-target.x)**2 + (this.y-target.y)**2);
-            if(d < 200) {
+            if(Math.sqrt((this.x-target.x)**2 + (this.y-target.y)**2) < 200) {
                 target.vy = 25; target.vx = 0;
                 setTimeout(() => {
                     this.y = target.y + 100; this.x = target.x; this.vy = -30;
@@ -212,70 +204,44 @@ class Fighter {
                     setTimeout(() => { clearInterval(checkHit); this.isAtk = false; this.el.style.filter = ""; }, 500);
                 }, 400);
             } else { this.isAtk = false; this.el.style.filter = ""; }
-        } 
-        else if(this.type === "sword") {
+        } else if(this.type === "sword") {
             showEffect("CYCLONE SLASH!!");
             let rot = 0;
             const cyclone = setInterval(() => {
                 rot += 45;
                 const sEl = document.getElementById(this.id + "-sword");
                 if(sEl) sEl.style.transform = `rotate(${rot}deg) scale(1.5)`;
-                const d = Math.sqrt((this.x - target.x)**2 + (this.y - target.y)**2);
-                if(d < 160) this.hit(target, 12, 1.8);
-                if(rot >= 1080) {
-                    clearInterval(cyclone); this.isAtk = false; this.el.style.filter = "";
-                    if(sEl) sEl.style.transform = "rotate(20deg) scale(1)";
-                }
+                if(Math.sqrt((this.x - target.x)**2 + (this.y - target.y)**2) < 160) this.hit(target, 12, 1.8);
+                if(rot >= 1080) { clearInterval(cyclone); this.isAtk = false; this.el.style.filter = ""; if(sEl) sEl.style.transform = "rotate(20deg) scale(1)"; }
             }, 30);
-        } 
-        else if(this.type === "gun") {
+        } else if(this.type === "gun") {
             showEffect("GENOCIDE BARRAGE!!");
             this.isInvincible = true;
-            for(let i=0; i<20; i++) { 
-                setTimeout(() => {
-                    if(!isRunning) return;
-                    this.fireProjectile(12, 40, true);
-                }, i * 40);
-            }
-            setTimeout(() => { 
-                this.isAtk = false; 
-                this.isInvincible = false;
-                this.el.style.filter = ""; 
-            }, 1000);
+            for(let i=0; i<20; i++) setTimeout(() => { if(isRunning) this.fireProjectile(12, 40, true); }, i * 40);
+            setTimeout(() => { this.isAtk = false; this.isInvincible = false; this.el.style.filter = ""; }, 1000);
         }
     }
 
     throwBomb() {
         this.holding = null;
-        const b = { 
-            x: this.x + (this.dir * 10), y: this.y, vx: this.dir * 5, vy: 5,
-            type: "bomb_active", timer: 120, range: 250, el: document.createElement("div"), 
-            hintEl: document.createElement("div")
-        };
+        const b = { x: this.x + (this.dir * 10), y: this.y, vx: this.dir * 5, vy: 5, type: "bomb_active", timer: 120, range: 250, el: document.createElement("div"), hintEl: document.createElement("div") };
         b.el.className = "item"; b.el.style.background = "#333"; b.el.style.borderRadius = "50%"; b.el.innerText = "💣";
-        b.hintEl.className = "explosion-hint"; b.hintEl.style.width = (b.range*2)+"px"; b.hintEl.style.height = (b.range*2)+"px";
-        b.hintEl.style.display = "none";
-        document.getElementById("game-stage").appendChild(b.el);
-        document.getElementById("game-stage").appendChild(b.hintEl);
-        items.push(b);
+        b.hintEl.className = "explosion-hint"; b.hintEl.style.width = (b.range*2)+"px"; b.hintEl.style.height = (b.range*2)+"px"; b.hintEl.style.display = "none";
+        document.getElementById("game-stage").appendChild(b.el); document.getElementById("game-stage").appendChild(b.hintEl); items.push(b);
     }
 
     fireProjectile(pwr, speed, isSuper = false) {
         const p = { x: this.x + (this.dir*30), y: this.y + 25, vx: this.dir*speed, owner: this, pwr, el: document.createElement("div") };
-        p.el.className = "projectile";
-        p.el.style.background = isSuper ? "lime" : "#ffff00";
+        p.el.className = "projectile"; p.el.style.background = isSuper ? "lime" : "#ffff00";
         if(isSuper) { p.el.style.transform = "scale(5)"; p.el.style.boxShadow = "0 0 15px lime"; }
         document.getElementById("game-stage").appendChild(p.el); projectiles.push(p);
     }
 
     hit(target, pwr, kbM) { 
         if(target.isInvincible) return; 
-        target.damage += pwr;
-        this.sp = Math.min(100, this.sp + pwr * 2.2);
-        target.sp = Math.min(100, target.sp + pwr * 0.9);
+        target.damage += pwr; this.sp = Math.min(100, this.sp + pwr * 2.2); target.sp = Math.min(100, target.sp + pwr * 0.9);
         const kb = ((target.damage / 7) + 8) * kbM; 
-        target.vx = (target.x < this.x ? -1 : 1) * kb; 
-        target.vy = kb * 0.3 + 5; 
+        target.vx = (target.x < this.x ? -1 : 1) * kb; target.vy = kb * 0.3 + 5; 
     }
 }
 
@@ -290,9 +256,7 @@ function startGame(m) {
     p1.isCom = false; p2.isCom = (m === "com");
     p1.reset(true); p2.reset(true); isRunning = true; 
     const scheduleNextItem = () => {
-        itemTimer = setTimeout(() => {
-            if(isRunning) { spawnCrate(); scheduleNextItem(); }
-        }, 7000 + Math.random() * 6000);
+        itemTimer = setTimeout(() => { if(isRunning) { spawnCrate(); scheduleNextItem(); } }, 7000 + Math.random() * 6000);
     };
     scheduleNextItem(); loop();
 }
@@ -302,39 +266,34 @@ function loop() {
     if(keys[p1.controls.left]) { p1.vx -= p1.accel; p1.dir = -1; }
     if(keys[p1.controls.right]) { p1.vx += p1.accel; p1.dir = 1; }
     
-    // --- ADVANCED COM AI ---
+    // --- ADVANCED RECOVERY & COM AI ---
     if(mode === "com") {
         const lvl = document.getElementById("com-lvl").value;
-        const comSpeed = parseFloat(document.getElementById("com-speed").value);
-        const decisionChance = lvl === "max" ? 0.95 : (lvl === "3" ? 0.7 : 0.4);
+        const decisionChance = lvl === "max" ? 0.98 : (lvl === "3" ? 0.75 : 0.4);
 
-        // 復帰アルゴリズム (Recovery Logic)
-        const isOffStage = p2.x < 150 || p2.x > 950;
+        // 復帰アルゴリズム強化 (Stronger Recovery)
+        const stageLeft = 150, stageRight = 950;
+        const isOffStage = p2.x < stageLeft || p2.x > stageRight;
+        
         if (isOffStage || p2.y < 110) {
-            // ステージ中央付近の安全な場所を目指す
-            const targetSafeX = p2.x < 550 ? 300 : 800;
-            p2.vx += (p2.x < targetSafeX ? comSpeed : -comSpeed);
+            // ステージの端を認識して中央へ加速
+            const targetX = p2.x < 550 ? stageLeft + 150 : stageRight - 150;
+            p2.vx += (p2.x < targetX ? p2.accel : -p2.accel);
             
-            // 落下中かつ一定高度以下ならジャンプで高度維持
-            if (p2.vy < 0 && p2.y < 250) {
-                p2.jump();
-            }
-            // 復帰中も敵が近ければ攻撃
-            if (Math.abs(p2.x - p1.x) < 100 && Math.random() < decisionChance) p2.attack(p1);
+            // 落下し始めたら、空中ジャンプを小出しにする（高度維持）
+            if (p2.vy < 0 && p2.y < 220) p2.jump();
+            
+            // 崖際でのみ必死にジャンプ（復帰阻止回避）
+            if (p2.y < 50) p2.jump();
         } else {
-            // 通常時の思考
+            // 通常攻撃AI
             if (Math.random() < decisionChance) {
-                let targetX = (p2.type === "gun") ? (p1.x < 550 ? p1.x + 250 : p1.x - 250) : p1.x;
-                p2.vx += (p2.x < targetX ? comSpeed * p2.accel : -comSpeed * p2.accel);
-                
-                // 攻撃範囲内なら攻撃
-                const dist = Math.abs(p1.x - p2.x);
-                if (dist < (p2.type === "gun" ? 400 : 100)) {
-                    if (p2.sp >= 100) p2.trySuper(p1);
-                    else p2.attack(p1);
+                let targetX = (p2.type === "gun") ? (p1.x < 550 ? p1.x + 240 : p1.x - 240) : p1.x;
+                p2.vx += (p2.x < targetX ? p2.accel : -p2.accel);
+                if (Math.abs(p1.x - p2.x) < (p2.type === "gun" ? 450 : 110)) {
+                    if (p2.sp >= 100) p2.trySuper(p1); else p2.attack(p1);
                 }
-                // 相手が高い位置にいたらジャンプ
-                if (p1.y > p2.y + 50 || (p1.y > 120 && p2.y < 120)) p2.jump();
+                if (p1.y > p2.y + 60) p2.jump();
             }
         }
     } else {
@@ -353,19 +312,15 @@ function loop() {
             });
         }
         it.vy -= 0.5; it.x += (it.vx || 0); it.y += it.vy; it.vx *= 0.98;
-        platforms.forEach(pl => {
-            if(it.vy <= 0 && it.x > pl.x-20 && it.x < pl.x+pl.w && it.y <= pl.y && it.y > pl.y-20) { it.y = pl.y; it.vy = 0; it.vx = 0; }
-        });
+        platforms.forEach(pl => { if(it.vy <= 0 && it.x > pl.x-20 && it.x < pl.x+pl.w && it.y <= pl.y && it.y > pl.y-20) { it.y = pl.y; it.vy = 0; it.vx = 0; } });
         it.el.style.left = it.x + "px"; it.el.style.bottom = it.y + "px";
         if(it.type === "bomb_active") {
-            it.timer--;
-            it.hintEl.style.left = it.x + "px"; it.hintEl.style.bottom = it.y + "px";
+            it.timer--; it.hintEl.style.left = it.x + "px"; it.hintEl.style.bottom = it.y + "px";
             if(it.timer < 40) it.hintEl.style.display = "block";
             if(it.timer <= 0) {
                 [p1, p2].forEach(p => {
                     if(p.isInvincible && p.type === "gun" && p.isAtk) return;
-                    const d = Math.sqrt((p.x-it.x)**2 + (p.y-it.y)**2);
-                    if(d < it.range) { p.damage += 35; p.vx = (p.x < it.x ? -20 : 20); p.vy = 16; p.sp = Math.min(100, p.sp + 15); }
+                    if(Math.sqrt((p.x-it.x)**2 + (p.y-it.y)**2) < it.range) { p.damage += 35; p.vx = (p.x < it.x ? -20 : 20); p.vy = 16; p.sp = Math.min(100, p.sp + 15); }
                 });
                 showEffect("BOOM!"); it.el.remove(); it.hintEl.remove(); items.splice(i, 1);
             }
@@ -374,10 +329,8 @@ function loop() {
     projectiles.forEach((p, i) => {
         p.x += p.vx; p.el.style.left = p.x + "px"; p.el.style.bottom = p.y + "px";
         let target = p.owner === p1 ? p2 : p1;
-        if(Math.abs(p.x - target.x) < 40 && Math.abs(p.y - target.y) < 50) {
-            p.owner.hit(target, p.pwr, 1.4); 
-            p.el.remove(); projectiles.splice(i, 1);
-        } else if(p.x < -300 || p.x > 1400) { p.el.remove(); projectiles.splice(i, 1); }
+        if(Math.abs(p.x - target.x) < 40 && Math.abs(p.y - target.y) < 50) { p.owner.hit(target, p.pwr, 1.4); p.el.remove(); projectiles.splice(i, 1); }
+        else if(p.x < -300 || p.x > 1400) { p.el.remove(); projectiles.splice(i, 1); }
     });
     requestAnimationFrame(loop);
 }
@@ -385,26 +338,20 @@ function loop() {
 function setupStage() {
     platforms = [{x: 150, y: 120, w: 800}, {x: 300, y: 280, w: 200}, {x: 600, y: 280, w: 200}];
     const stageEl = document.getElementById("game-stage");
-    const toRemove = stageEl.querySelectorAll('.platform, .item, .projectile, .explosion-hint');
-    toRemove.forEach(el => el.remove());
+    stageEl.querySelectorAll('.platform, .item, .projectile, .explosion-hint').forEach(el => el.remove());
     platforms.forEach(p => {
         const div = document.createElement("div"); div.className = "platform";
-        div.style.left = p.x + "px"; div.style.bottom = p.y + "px"; div.style.width = p.w + "px"; div.style.height = "15px";
-        stageEl.appendChild(div);
+        div.style.left = p.x + "px"; div.style.bottom = p.y + "px"; div.style.width = p.w + "px"; div.style.height = "15px"; stageEl.appendChild(div);
     });
 }
 function breakCrate(it) {
-    const isBomb = Math.random() < 0.4;
-    it.type = isBomb ? "bomb_item" : "heal";
-    it.el.classList.remove("crate");
-    it.el.style.background = isBomb ? "#555" : "#2ecc71";
-    it.el.innerText = isBomb ? "💣" : "♥";
+    const isBomb = Math.random() < 0.4; it.type = isBomb ? "bomb_item" : "heal";
+    it.el.classList.remove("crate"); it.el.style.background = isBomb ? "#555" : "#2ecc71"; it.el.innerText = isBomb ? "💣" : "♥";
 }
 function spawnCrate() {
     if(document.getElementById("item-spawn").value === "off") return;
     const it = { x: 200 + Math.random()*700, y: 600, vy: 0, type: "crate", el: document.createElement("div") };
-    it.el.className = "item crate"; it.el.innerText = "📦";
-    document.getElementById("game-stage").appendChild(it.el); items.push(it);
+    it.el.className = "item crate"; it.el.innerText = "📦"; document.getElementById("game-stage").appendChild(it.el); items.push(it);
 }
 function endGame(win) { isRunning = false; if(itemTimer) clearTimeout(itemTimer); document.getElementById("result-screen").style.display = "flex"; document.getElementById("winner-text").innerText = win + " WINS!"; }
 function showEffect(t) { const o = document.getElementById("overlay"); o.innerText = t; setTimeout(()=>o.innerText="", 1000); }
