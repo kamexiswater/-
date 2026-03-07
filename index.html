@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Browser Smash - Gunner Overload</title>
+    <title>Browser Smash - Gunner Overload: Perfect Edition</title>
     <style>
         body { margin: 0; background: #1a1a1a; color: white; font-family: sans-serif; text-align: center; overflow: hidden; }
         #menu, #result-screen {
@@ -48,11 +48,11 @@
 </head>
 <body>
     <div id="menu">
-        <h1 style="color: #4cd137;">BROWSER SMASH <span style="font-size:12px; color:gold;">GUNNER OVERLOAD</span></h1>
+        <h1 style="color: #4cd137;">BROWSER SMASH <span style="font-size:12px; color:gold;">GUNNER OVERLOAD Ver.UP</span></h1>
         <div class="config-grid">
             <strong>【P1】</strong><strong>【P2】</strong>
-            <div>タイプ: <select id="type1"><option value="gun" selected>銃(Range:Buffed)</option><option value="fighter">格闘(Speed)</option><option value="sword">剣(Balance)</option></select></div>
-            <div>タイプ: <select id="type2"><option value="gun">銃(Range:Buffed)</option><option value="fighter">格闘(Speed)</option><option value="sword" selected>剣(Balance)</option></select></div>
+            <div>タイプ: <select id="type1"><option value="gun" selected>銃(Range:Strong)</option><option value="fighter">格闘(Speed)</option><option value="sword">剣(Balance)</option></select></div>
+            <div>タイプ: <select id="type2"><option value="gun">銃(Range:Strong)</option><option value="fighter">格闘(Speed)</option><option value="sword" selected>剣(Balance)</option></select></div>
             <div>操作: <select id="style1" onchange="updateGuide()"><option value="wasd">WASD設定</option><option value="arrow">矢印設定</option></select></div>
             <div>操作: <select id="style2" onchange="updateGuide()"><option value="arrow" selected>矢印設定</option><option value="wasd">WASD設定</option></select></div>
             <strong>【設定】</strong><strong>【COM設定】</strong>
@@ -111,11 +111,11 @@ class Fighter {
         this.isInvincible = true; setTimeout(() => this.isInvincible = false, 1500);
         this.type = document.getElementById(this.id==="p1"?"type1":"type2").value;
         
-        // パラメータ調整: gunのcdを短縮し移動力をUP
+        // stats: [近接パワー, CD, 加速, ジャンプ力]
         const stats = { 
             fighter: [14, 280, 1.4, 16], 
             sword: [10, 280, 1.15, 15], 
-            gun: [4, 350, 1.25, 15] 
+            gun: [7, 350, 1.25, 15] // 銃の基礎パワーを4→7に強化
         };
         [this.meleeP, this.cd, this.accel, this.jumpV] = stats[this.type];
         
@@ -174,9 +174,9 @@ class Fighter {
         
         this.isAtk = true;
         if(this.type === "gun") { 
-            // 銃の強化: 3連射
+            // 銃の強化: ダメージはfireProjectile内で計算
             for(let i=0; i<3; i++) {
-                setTimeout(() => this.fireProjectile(4, 22), i * 100);
+                setTimeout(() => this.fireProjectile(this.meleeP, 22), i * 100);
             }
         }
         else {
@@ -232,13 +232,19 @@ class Fighter {
         } 
         else if(this.type === "gun") {
             showEffect("GENOCIDE BARRAGE!!");
-            for(let i=0; i<20; i++) { // 圧倒的な20連射
+            this.isInvincible = true; // 発動中スーパーアーマー(無敵)
+            for(let i=0; i<20; i++) { 
                 setTimeout(() => {
-                    this.fireProjectile(10, 40, true);
-                    this.vx -= this.dir * 2; // 反動
+                    if(!isRunning) return;
+                    this.fireProjectile(12, 40, true);
+                    // 反動(vxの変化)を維持しつつ、ノックバック(被弾)を受けない状態に
                 }, i * 40);
             }
-            setTimeout(() => { this.isAtk = false; this.el.style.filter = ""; }, 1000);
+            setTimeout(() => { 
+                this.isAtk = false; 
+                this.isInvincible = false; // 無敵終了
+                this.el.style.filter = ""; 
+            }, 1000);
         }
     }
 
@@ -268,7 +274,7 @@ class Fighter {
     hit(target, pwr, kbM) { 
         if(target.isInvincible) return; 
         target.damage += pwr;
-        this.sp = Math.min(100, this.sp + pwr * 2.0); // 銃はSPがより溜まる
+        this.sp = Math.min(100, this.sp + pwr * 2.2); // 銃のSPゲージ回収率も微増
         target.sp = Math.min(100, target.sp + pwr * 0.9);
         const kb = ((target.damage / 7) + 8) * kbM; 
         target.vx = (target.x < this.x ? -1 : 1) * kb; 
@@ -307,10 +313,9 @@ function loop() {
         } else {
             let decisionChance = lvl === "max" ? 0.9 : (lvl === "3" ? 0.06 : 0.02);
             if (Math.random() < decisionChance) {
-                // 銃タイプなら少し距離を取るAI
                 let targetX = (p2.type === "gun") ? (p1.x < 550 ? p1.x + 300 : p1.x - 300) : p1.x;
                 p2.vx += (p2.x < targetX ? comSpeed * p2.accel : -comSpeed * p2.accel);
-                if (Math.abs(p1.x - p2.x) < 400) {
+                if (Math.abs(p1.x - p2.x) < 450) {
                     if (p2.sp >= 100) p2.trySuper(p1);
                     else p2.attack(p1);
                 }
@@ -342,6 +347,7 @@ function loop() {
             if(it.timer < 40) it.hintEl.style.display = "block";
             if(it.timer <= 0) {
                 [p1, p2].forEach(p => {
+                    if(p.isInvincible && p.type === "gun" && p.isAtk) return; // 銃SP中は爆発ものけぞらない
                     const d = Math.sqrt((p.x-it.x)**2 + (p.y-it.y)**2);
                     if(d < it.range) { p.damage += 35; p.vx = (p.x < it.x ? -20 : 20); p.vy = 16; p.sp = Math.min(100, p.sp + 15); }
                 });
@@ -353,7 +359,7 @@ function loop() {
         p.x += p.vx; p.el.style.left = p.x + "px"; p.el.style.bottom = p.y + "px";
         let target = p.owner === p1 ? p2 : p1;
         if(Math.abs(p.x - target.x) < 40 && Math.abs(p.y - target.y) < 50) {
-            p.owner.hit(target, p.pwr, 1.3); // 銃のノックバック倍率を強化
+            p.owner.hit(target, p.pwr, 1.4); 
             p.el.remove(); projectiles.splice(i, 1);
         } else if(p.x < -300 || p.x > 1400) { p.el.remove(); projectiles.splice(i, 1); }
     });
