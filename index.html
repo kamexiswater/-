@@ -15,7 +15,12 @@
         #controls-guide { margin-top: 15px; padding: 10px; background: rgba(0,0,0,0.5); border-radius: 10px; font-size: 13px; color: #ccc; }
         #game-container { display: none; }
         #ui-container { margin-top: 5px; display: flex; justify-content: center; gap: 20px; }
-        .status-card { background: rgba(0,0,0,0.8); padding: 8px; border-radius: 10px; border: 2px solid #444; min-width: 150px; }
+        
+        /* UIの縁の色を個別に設定 */
+        .status-card { background: rgba(0,0,0,0.8); padding: 8px; border-radius: 10px; min-width: 150px; border: 3px solid #444; }
+        #card-p1 { border-color: #2e86de; } /* P1: 青 */
+        #card-p2 { border-color: #ff4757; } /* P2: 赤 */
+        
         .damage-percent { font-size: 28px; font-weight: bold; margin: 2px 0; }
         .sp-bar-bg { width: 100%; height: 8px; background: #444; border-radius: 4px; overflow: hidden; margin-top: 5px; border: 1px solid #000; }
         .sp-bar-fill { width: 0%; height: 100%; background: #3498db; transition: width 0.2s; box-shadow: 0 0 5px #3498db; }
@@ -63,8 +68,8 @@
     <div id="result-screen" style="display:none;"><h1 id="winner-text"></h1><button onclick="location.reload()">タイトルへ</button></div>
     <div id="game-container">
         <div id="ui-container">
-            <div class="status-card">P1 <div id="p1-val" class="damage-percent">0%</div><div id="p1-sub">●●●</div><div class="sp-bar-bg"><div id="p1-sp" class="sp-bar-fill"></div></div><div id="p1-holding" style="color:#ff0; font-size:12px;"></div></div>
-            <div class="status-card">P2 <div id="p2-val" class="damage-percent">0%</div><div id="p2-sub">●●●</div><div class="sp-bar-bg"><div id="p2-sp" class="sp-bar-fill"></div></div><div id="p2-holding" style="color:#ff0; font-size:12px;"></div></div>
+            <div class="status-card" id="card-p1">P1 <div id="p1-val" class="damage-percent">0%</div><div id="p1-sub">●●●</div><div class="sp-bar-bg"><div id="p1-sp" class="sp-bar-fill"></div></div><div id="p1-holding" style="color:#ff0; font-size:12px;"></div></div>
+            <div class="status-card" id="card-p2">P2 <div id="p2-val" class="damage-percent">0%</div><div id="p2-sub">●●●</div><div class="sp-bar-bg"><div id="p2-sp" class="sp-bar-fill"></div></div><div id="p2-holding" style="color:#ff0; font-size:12px;"></div></div>
         </div>
         <div id="game-stage">
             <div id="overlay"></div>
@@ -80,14 +85,16 @@ let p1, p2;
 function updateGuide() {
     const s1 = document.getElementById("style1").value;
     const s2 = document.getElementById("style2").value;
-    const guide = (s) => s === "wasd" ? "W:跳 A:左 D:右 F:攻(満タンでSP)" : "↑:跳 ←:左 →:右 .:攻(満タンでSP)";
+    const guide = (s) => s === "wasd" ? "W:跳 A:左 D:右 F:攻 G:SP" : "↑:跳 ←:左 →:右 .:攻 ,:SP";
     document.getElementById("controls-guide").innerHTML = `P1 [${s1.toUpperCase()}]: ${guide(s1)}<br>P2 [${s2.toUpperCase()}]: ${guide(s2)}`;
 }
 updateGuide();
 
 const getControls = (id) => {
     const style = document.getElementById(id==="p1"?"style1":"style2").value;
-    return style === "wasd" ? { up: "KeyW", left: "KeyA", right: "KeyD", atk: "KeyF" } : { up: "ArrowUp", left: "ArrowLeft", right: "ArrowRight", atk: "Period" };
+    return style === "wasd" ? 
+        { up: "KeyW", left: "KeyA", right: "KeyD", atk: "KeyF", sp: "KeyG" } : 
+        { up: "ArrowUp", left: "ArrowLeft", right: "ArrowRight", atk: "Period", sp: "Comma" };
 };
 
 class Fighter {
@@ -144,13 +151,6 @@ class Fighter {
 
     attack(target) {
         if(this.isAtk) return;
-        
-        // SP技: ゲージ100%の時に攻撃キーが押されたら発動
-        if(this.sp >= 100) {
-            this.useSuper(target);
-            return;
-        }
-
         if(this.holding === "bomb") { this.throwBomb(); return; }
         
         this.isAtk = true;
@@ -161,6 +161,12 @@ class Fighter {
         }
         items.forEach(it => { if(it.type === "crate" && Math.abs(this.x - it.x) < 80 && Math.abs(this.y - it.y) < 60) breakCrate(it); });
         setTimeout(()=>this.isAtk=false, this.cd);
+    }
+
+    trySuper(target) {
+        if(this.sp >= 100 && !this.isAtk) {
+            this.useSuper(target);
+        }
     }
 
     useSuper(target) {
@@ -224,9 +230,9 @@ class Fighter {
     }
 }
 
-// 初期化
-p1 = new Fighter("p1", 300, "#ff4757", "P1");
-p2 = new Fighter("p2", 800, "#2e86de", "P2");
+// 初期化：P1は青、P2は赤
+p1 = new Fighter("p1", 300, "#2e86de", "P1");
+p2 = new Fighter("p2", 800, "#ff4757", "P2");
 
 function startGame(m) {
     if(itemTimer) clearTimeout(itemTimer);
@@ -257,7 +263,6 @@ function loop() {
         const comSpeed = parseFloat(document.getElementById("com-speed").value);
         const dist = Math.abs(p1.x - p2.x);
         
-        // COM復帰ロジック
         if (p2.x < 150 || p2.x > 950 || p2.y < 120) {
             p2.vx += (p2.x < 550 ? comSpeed : -comSpeed);
             if (p2.vy < 0) p2.jump();
@@ -265,8 +270,10 @@ function loop() {
             let decisionChance = lvl === "max" ? 0.9 : (lvl === "3" ? 0.06 : 0.02);
             if (Math.random() < decisionChance) {
                 p2.vx += (p2.x < p1.x ? comSpeed * 0.75 : -comSpeed * 0.75);
-                // 攻撃範囲内なら攻撃（SP溜まってればSPが出る）
-                if (dist < 130) p2.attack(p1);
+                if (dist < 130) {
+                    if (p2.sp >= 100) p2.trySuper(p1);
+                    else p2.attack(p1);
+                }
                 if (p1.y > p2.y + 60) p2.jump();
             }
         }
@@ -350,11 +357,16 @@ function showEffect(t) { const o = document.getElementById("overlay"); o.innerTe
 window.addEventListener("keydown", e => {
     keys[e.code] = true;
     if(isRunning) {
+        // P1 操作
         if(e.code === p1.controls.up) p1.jump();
         if(e.code === p1.controls.atk) p1.attack(p2);
+        if(e.code === p1.controls.sp) p1.trySuper(p2);
+
+        // P2 操作
         if(mode === "p2") {
             if(e.code === p2.controls.up) p2.jump();
             if(e.code === p2.controls.atk) p2.attack(p1);
+            if(e.code === p2.controls.sp) p2.trySuper(p1);
         }
     }
 });
