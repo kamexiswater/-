@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Browser Smash - Bomb & AI Edition</title>
+    <title>Browser Smash - Pro Recovery Edition</title>
     <style>
         body { margin: 0; background: #1a1a1a; color: white; font-family: sans-serif; text-align: center; overflow: hidden; }
         #menu, #result-screen {
@@ -24,13 +24,11 @@
             border: 4px solid #000; position: relative; overflow: hidden;
         }
         .platform { position: absolute; background: #444; border-bottom: 5px solid #222; border-radius: 4px; z-index: 1; }
-        .main-floor { background: #555; border-bottom: 10px solid #222; }
         .player { position: absolute; width: 40px; height: 60px; z-index: 10; transition: filter 0.1s; }
         .projectile { position: absolute; width: 16px; height: 16px; border-radius: 50%; box-shadow: 0 0 10px white; z-index: 15; }
         .item { position: absolute; width: 34px; height: 34px; z-index: 5; display: flex; justify-content: center; align-items: center; font-weight: bold; border-radius: 4px; font-size: 20px; }
-        .crate { background: #8b4513; border: 2px solid #5d2e0a; color: #ffd700; box-shadow: inset 0 0 5px #000; }
-        .bomb-timer { position: absolute; top: -8px; left: 0; height: 4px; background: #ff0000; width: 100%; border-radius: 2px; border: 1px solid #000; }
-        /* 爆発範囲のインジケーター */
+        .crate { background: #8b4513; border: 2px solid #5d2e0a; color: #ffd700; }
+        .bomb-timer { position: absolute; top: -8px; left: 0; height: 4px; background: #ff0000; width: 100%; }
         .explosion-range { 
             position: absolute; border-radius: 50%; background: rgba(255, 0, 0, 0.2); 
             border: 2px dashed rgba(255, 255, 255, 0.5); pointer-events: none; z-index: 2;
@@ -41,25 +39,25 @@
 </head>
 <body>
     <div id="menu">
-        <h1 style="color: #ff4757;">BROWSER SMASH <span style="font-size:12px; color:gold;">BOMB & AI</span></h1>
+        <h1 style="color: #ff4757;">BROWSER SMASH <span style="font-size:12px; color:gold;">GOD RECOVERY</span></h1>
         <div class="config-grid">
             <strong>【P1】</strong><strong>【P2】</strong>
             <div>タイプ: <select id="type1"><option value="fighter">格闘</option><option value="sword">剣</option><option value="gun">銃</option></select></div>
             <div>タイプ: <select id="type2"><option value="fighter">格闘</option><option value="sword" selected>剣</option><option value="gun">銃</option></select></div>
             <div>操作: <select id="style1" onchange="updateGuide()"><option value="wasd">WASD設定</option><option value="arrow">矢印設定</option></select></div>
             <div>操作: <select id="style2" onchange="updateGuide()"><option value="arrow" selected>矢印設定</option><option value="wasd">WASD設定</option></select></div>
-            <strong>【設定】</strong><strong>【爆弾範囲表示】</strong>
-            <div>アイテム出現: <select id="item-spawn"><option value="on" selected>ON</option><option value="off">OFF</option></select></div>
-            <div><select id="bomb-visual"><option value="on" selected>ON（表示あり）</option><option value="off">OFF（非表示）</option></select></div>
+            <strong>【設定】</strong><strong>【難易度】</strong>
+            <div>アイテム: <select id="item-spawn"><option value="on" selected>ON</option><option value="off">OFF</option></select></div>
+            <div>COMレベル: <select id="com-lvl"><option value="max" selected>Lv.MAX (不沈)</option></select></div>
         </div>
         <div id="controls-guide"></div>
-        <div style="margin-top:10px;"><button onclick="startGame('com')">VS COM (ITEM AI)</button><button onclick="startGame('p2')">VS 2P</button></div>
+        <div style="margin-top:10px;"><button onclick="startGame('com')">VS COM (GOD)</button><button onclick="startGame('p2')">VS 2P</button></div>
     </div>
     <div id="result-screen" style="display:none;"><h1 id="winner-text"></h1><button onclick="location.reload()">タイトルへ</button></div>
     <div id="game-container">
         <div id="ui-container">
-            <div class="status-card">P1 <div id="p1-val" class="damage-percent">0%</div><div id="p1-sub">●●●</div><div id="p1-sp" class="sp-gauge">SP: READY</div></div>
-            <div class="status-card">P2 <div id="p2-val" class="damage-percent">0%</div><div id="p2-sub">●●●</div><div id="p2-sp" class="sp-gauge">SP: READY</div></div>
+            <div class="status-card">P1 <div id="p1-val" class="damage-percent">0%</div><div id="p1-sub">●●●</div><div id="p1-sp" class="sp-gauge">BOMB: READY</div></div>
+            <div class="status-card">P2 <div id="p2-val" class="damage-percent">0%</div><div id="p2-sub">●●●</div><div id="p2-sp" class="sp-gauge">BOMB: READY</div></div>
         </div>
         <div id="game-stage">
             <div id="overlay"></div>
@@ -90,13 +88,13 @@ class Fighter {
     }
     reset(full) {
         if(full) this.stock = 3;
-        this.damage = 0; this.isGrabbing = false; this.x = this.startX; this.y = 350; 
+        this.damage = 0; this.x = this.startX; this.y = 350; 
         this.oldY = 350; this.vx = 0; this.vy = 0; this.dir = (this.x < 550) ? 1 : -1;
         this.jumps = 0; this.isAtk = false; this.spReady = true;
         this.controls = getControls(this.id);
         this.isInvincible = true; setTimeout(() => this.isInvincible = false, 1500);
         this.type = document.getElementById(this.id==="p1"?"type1":"type2").value;
-        const stats = { fighter: [15, 400], sword: [13, 300], gun: [9, 140] };
+        const stats = { fighter: [15, 350], sword: [13, 280], gun: [9, 120] };
         [this.meleeP, this.cd] = stats[this.type];
         if(!this.el) { this.el = document.createElement("div"); this.el.id = this.id; document.getElementById("game-stage").appendChild(this.el); }
         this.el.className = `player type-${this.type}`;
@@ -104,7 +102,12 @@ class Fighter {
                              <div style="width:20px;height:20px;background:#ffd1a4;border-radius:50%;margin:0 auto;border:2px solid #000;"></div>
                              <div style="width:22px;height:30px;background:${this.color};margin:-2px auto;border:2px solid #000;border-radius:4px;"></div>`;
     }
-    jump() { if(this.jumps < 2) { this.vy = 13.5; this.jumps++; } }
+    jump() { 
+        if(this.jumps < 2) { 
+            this.vy = 14.5; // 少し強化
+            this.jumps++; 
+        } 
+    }
     
     update() {
         this.oldY = this.y; this.vy -= GRAVITY; this.x += this.vx; this.y += this.vy; this.vx *= FRICTION;
@@ -113,13 +116,12 @@ class Fighter {
                 if (this.oldY >= p.y && this.y <= p.y) { this.y = p.y; this.vy = 0; this.jumps = 0; }
             }
         });
-        if (this.x < -100 || this.x > 1200 || this.y < -200) this.out();
+        if (this.x < -300 || this.x > 1400 || this.y < -400) this.out();
         this.el.style.left = this.x + "px"; this.el.style.bottom = this.y + "px";
         this.el.style.transform = `scaleX(${this.dir})`;
         this.el.style.opacity = this.isInvincible ? 0.5 : 1;
         document.getElementById(this.id+"-val").innerText = Math.floor(this.damage) + "%";
         document.getElementById(this.id+"-sub").innerText = "●".repeat(Math.max(0, this.stock));
-        document.getElementById(this.id+"-sp").innerText = this.spReady ? "BOMB: READY" : "BOMB: RELOADING";
     }
 
     out() { this.stock--; if(this.stock <= 0) endGame(this.id==="p1"?"P2":"P1"); else { showEffect("K.O."); this.reset(false); } }
@@ -132,33 +134,23 @@ class Fighter {
             const reach = this.type === "sword" ? 110 : 80;
             if(Math.abs(this.x - target.x) < reach && Math.abs(this.y - target.y) < 70) this.hit(target, this.meleeP, 1.8);
         }
-        // 木箱を殴る判定
         items.forEach(it => { if(it.type === "crate" && Math.abs(this.x - it.x) < 80) breakCrate(it); });
         setTimeout(()=>this.isAtk=false, this.cd);
     }
 
-    // 爆弾を投げて設置する
     throwBomb() {
         if(!this.spReady) return;
         this.spReady = false;
         const bomb = { 
             x: this.x + (this.dir * 20), y: this.y + 40, vx: this.dir * 8, vy: 10, 
-            type: "bomb", timer: 150, range: 160, el: document.createElement("div"), oldY: 0
+            type: "bomb", timer: 150, range: 170, el: document.createElement("div"), oldY: 0
         };
         bomb.el.className = "item"; bomb.el.style.background = "#333"; bomb.el.style.borderRadius = "50%"; bomb.el.innerText = "💣";
         bomb.timerEl = document.createElement("div"); bomb.timerEl.className = "bomb-timer";
         bomb.el.appendChild(bomb.timerEl);
-        
-        // 範囲表示設定
-        if(document.getElementById("bomb-visual").value === "on") {
-            bomb.rangeEl = document.createElement("div"); bomb.rangeEl.className = "explosion-range";
-            bomb.rangeEl.style.width = bomb.range*2 + "px"; bomb.rangeEl.style.height = bomb.range*2 + "px";
-            document.getElementById("game-stage").appendChild(bomb.rangeEl);
-        }
-
         document.getElementById("game-stage").appendChild(bomb.el);
         items.push(bomb);
-        setTimeout(() => this.spReady = true, 5000);
+        setTimeout(() => this.spReady = true, 4000);
     }
 
     fireProjectile(pwr, speed) {
@@ -170,9 +162,9 @@ class Fighter {
     hit(target, pwr, kbM) { 
         if(target.isInvincible) return; 
         target.damage += pwr; 
-        const kb = ((target.damage / 5) + 10) * kbM; 
+        const kb = ((target.damage / 5) + 12) * kbM; 
         target.vx = (target.x < this.x ? -1 : 1) * kb; 
-        target.vy = kb * 0.4 + 5; 
+        target.vy = kb * 0.35 + 6; 
     }
 }
 
@@ -208,23 +200,38 @@ function loop() {
     if(keys[p1.controls.left]) { p1.vx -= MOVE_ACCEL; p1.dir = -1; }
     if(keys[p1.controls.right]) { p1.vx += MOVE_ACCEL; p1.dir = 1; }
     
-    // COM AI Logic
+    // --- GOD RECOVERY COM AI (P2) ---
     if(mode === "com") {
-        const targetCrate = items.find(it => it.type === "crate");
         const dist = Math.abs(p1.x - p2.x);
-        
-        // 木箱があれば優先して壊しに行く
-        if(targetCrate) {
-            p2.vx += (p2.x < targetCrate.x ? 0.8 : -0.8);
-            if(Math.abs(p2.x - targetCrate.x) < 60) p2.attack(p1);
-        } else {
-            p2.vx += (p2.x < p1.x ? 0.7 : -0.7);
-        }
+        const stageLeft = 150, stageRight = 950, mainFloorY = 120;
 
-        // プレイヤーが近い場合は攻撃 or 爆弾で妨害
-        if(dist < 120) p2.attack(p1);
-        if(dist < 250 && dist > 150 && Math.random() < 0.02) p2.throwBomb();
-        if(p1.y > p2.y + 50 || Math.random() < 0.01) p2.jump();
+        // 1. 強力な復帰ロジック
+        if (p2.x < stageLeft || p2.x > stageRight || p2.y < mainFloorY - 20) {
+            // ステージの方向へ移動
+            const targetX = p2.x < stageLeft ? stageLeft + 50 : stageRight - 50;
+            p2.vx += (p2.x < targetX ? 1.2 : -1.2);
+
+            // 高度不足または落下中にジャンプ (温存しつつ使う)
+            if (p2.vy < -2 && (p2.y < mainFloorY + 50)) {
+                p2.jump();
+            }
+            // 復帰中にプレイヤーが邪魔なら攻撃
+            if (dist < 100) p2.attack(p1);
+        } 
+        // 2. 通常の立ち回り
+        else {
+            const targetCrate = items.find(it => it.type === "crate");
+            if(targetCrate) {
+                p2.vx += (p2.x < targetCrate.x ? 0.9 : -0.9);
+                if(Math.abs(p2.x - targetCrate.x) < 60) p2.attack(p1);
+            } else {
+                p2.vx += (p2.x < p1.x ? 0.75 : -0.75);
+            }
+
+            if(dist < 120) p2.attack(p1);
+            if(dist < 300 && dist > 150 && Math.random() < 0.03) p2.throwBomb();
+            if(p1.y > p2.y + 70 && Math.random() < 0.05) p2.jump();
+        }
     } else {
         if(keys[p2.controls.left]) { p2.vx -= MOVE_ACCEL; p2.dir = -1; }
         if(keys[p2.controls.right]) { p2.vx += MOVE_ACCEL; p2.dir = 1; }
@@ -232,40 +239,32 @@ function loop() {
 
     p1.update(); p2.update();
 
-    // Items & Bombs update
+    // Items, Bombs, Projectiles (Same logic as before)
     items.forEach((it, i) => {
-        if(it.type === "bomb" || it.type === "crate" || it.type === "heal") {
-            it.vy -= 0.5; it.x += (it.vx || 0); it.y += it.vy; it.vx *= 0.95;
-            platforms.forEach(pl => {
-                if(it.vy <= 0 && it.x > pl.x-20 && it.x < pl.x+pl.w && it.y <= pl.y && it.y > pl.y-20) { it.y = pl.y; it.vy = 0; it.vx = 0; }
-            });
-            it.el.style.left = it.x + "px"; it.el.style.bottom = it.y + "px";
-            
-            if(it.type === "bomb") {
-                it.timer--;
-                it.timerEl.style.width = (it.timer/150*100) + "%";
-                if(it.rangeEl) { it.rangeEl.style.left = it.x + 17 + "px"; it.rangeEl.style.bottom = it.y - it.range + "px"; }
-                
-                if(it.timer <= 0) {
-                    [p1, p2].forEach(p => {
-                        const d = Math.sqrt((p.x-it.x)**2 + (p.y-it.y)**2);
-                        if(d < it.range) { p.damage += 35; p.vx = (p.x < it.x ? -20 : 20); p.vy = 15; }
-                    });
-                    showEffect("BOOM!");
-                    if(it.rangeEl) it.rangeEl.remove();
-                    it.el.remove(); items.splice(i, 1);
-                }
-            } else if(it.type === "heal") {
+        it.vy -= 0.5; it.x += (it.vx || 0); it.y += it.vy; it.vx *= 0.95;
+        platforms.forEach(pl => {
+            if(it.vy <= 0 && it.x > pl.x-20 && it.x < pl.x+pl.w && it.y <= pl.y && it.y > pl.y-20) { it.y = pl.y; it.vy = 0; it.vx = 0; }
+        });
+        it.el.style.left = it.x + "px"; it.el.style.bottom = it.y + "px";
+        if(it.type === "bomb") {
+            it.timer--;
+            it.timerEl.style.width = (it.timer/150*100) + "%";
+            if(it.timer <= 0) {
                 [p1, p2].forEach(p => {
-                    if(Math.abs(p.x - it.x) < 40 && Math.abs(p.y - it.y) < 40) {
-                        p.damage = Math.max(0, p.damage - 30); it.el.remove(); items.splice(i, 1);
-                    }
+                    const d = Math.sqrt((p.x-it.x)**2 + (p.y-it.y)**2);
+                    if(d < it.range) { p.damage += 35; p.vx = (p.x < it.x ? -22 : 22); p.vy = 16; }
                 });
+                showEffect("BOOM!"); it.el.remove(); items.splice(i, 1);
             }
+        } else if(it.type === "heal") {
+            [p1, p2].forEach(p => {
+                if(Math.abs(p.x - it.x) < 40 && Math.abs(p.y - it.y) < 40) {
+                    p.damage = Math.max(0, p.damage - 30); it.el.remove(); items.splice(i, 1);
+                }
+            });
         }
     });
 
-    // Projectiles
     projectiles.forEach((p, i) => {
         p.x += p.vx; p.el.style.left = p.x + "px"; p.el.style.bottom = p.y + "px";
         let target = p.owner === p1 ? p2 : p1;
