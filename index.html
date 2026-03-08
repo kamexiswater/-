@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Browser Smash - Gunner Overload: Speed Edition</title>
+    <title>Browser Smash - Gunner Overload: Items Edition</title>
     <style>
         body { margin: 0; background: #1a1a1a; color: white; font-family: sans-serif; text-align: center; overflow: hidden; }
         #menu, #result-screen {
@@ -30,7 +30,7 @@
             border: 4px solid #000; position: relative; overflow: hidden;
         }
         .platform { position: absolute; background: #444; border-bottom: 5px solid #222; border-radius: 4px; z-index: 1; }
-        .player { position: absolute; width: 40px; height: 60px; z-index: 10; transition: filter 0.1s; }
+        .player { position: absolute; width: 40px; height: 60px; z-index: 10; transition: filter 0.1s, box-shadow 0.2s; border-radius: 10px; }
         
         .weapon-sword {
             position: absolute; width: 6px; height: 45px; background: #ccc;
@@ -40,9 +40,10 @@
         }
         
         .projectile { position: absolute; width: 14px; height: 8px; border-radius: 4px; z-index: 15; box-shadow: 0 0 8px #ff0; }
-        .item { position: absolute; width: 34px; height: 34px; z-index: 5; display: flex; justify-content: center; align-items: center; font-weight: bold; border-radius: 4px; font-size: 20px; }
+        .item { position: absolute; width: 34px; height: 34px; z-index: 5; display: flex; justify-content: center; align-items: center; font-weight: bold; border-radius: 4px; font-size: 20px; transition: transform 0.2s; }
         .crate { background: #8b4513; border: 2px solid #5d2e0a; color: #ffd700; }
         .explosion-hint { position: absolute; border-radius: 50%; background: rgba(255, 0, 0, 0.2); border: 2px solid rgba(255, 0, 0, 0.5); pointer-events: none; transform: translate(-50%, 50%); z-index: 2; }
+        .gravity-range { position: absolute; border-radius: 50%; background: rgba(52, 73, 94, 0.2); border: 1px dashed #34495e; pointer-events: none; transform: translate(-50%, 50%); z-index: 2; }
         #overlay { position: absolute; top: 30%; left: 50%; transform: translate(-50%, -50%); font-size: 60px; font-weight: bold; color: #ff0; text-shadow: 3px 3px 0 #000; pointer-events: none; z-index: 100; }
     </style>
 </head>
@@ -107,9 +108,7 @@ class Fighter {
     constructor(id, x, color, label) {
         this.id = id; this.startX = x; this.color = color; this.label = label;
         this.el = null; this.holding = null; this.sp = 0;
-        this.isCom = false;
-        this.isGrabbingLedge = false;
-        this.ledgeCooldown = 0;
+        this.buffs = { speed: 0, shield: 0 };
     }
     reset(full) {
         if(full) { this.stock = 3; this.sp = 0; }
@@ -118,6 +117,7 @@ class Fighter {
         this.jumps = 0; this.isAtk = false;
         this.isGrabbingLedge = false;
         this.ledgeCooldown = 0;
+        this.buffs = { speed: 0, shield: 0 };
         this.controls = getControls(this.id);
         this.isInvincible = true; setTimeout(() => this.isInvincible = false, 1500);
         
@@ -147,20 +147,33 @@ class Fighter {
     jump() { 
         if(this.isGrabbingLedge) {
             this.isGrabbingLedge = false;
-            this.vy = this.jumpV;
+            this.vy = this.jumpV * (this.buffs.speed > 0 ? 1.2 : 1);
             this.jumps = 1;
             this.ledgeCooldown = 60;
             return;
         }
-        if(this.jumps < 2) { this.vy = this.jumpV; this.jumps++; } 
+        if(this.jumps < 2) { 
+            this.vy = this.jumpV * (this.buffs.speed > 0 ? 1.2 : 1); 
+            this.jumps++; 
+        } 
     }
     
     update() {
         if (this.ledgeCooldown > 0) this.ledgeCooldown--;
+        
+        // バフ処理
+        if(this.buffs.speed > 0) {
+            this.buffs.speed--;
+            this.el.style.boxShadow = "0 0 15px #f1c40f";
+        } else if(this.buffs.shield > 0) {
+            this.buffs.shield--;
+            this.el.style.boxShadow = "0 0 15px #9b59b6";
+        } else {
+            this.el.style.boxShadow = "none";
+        }
 
         if (this.isGrabbingLedge) {
-            this.vx = 0;
-            this.vy = 0;
+            this.vx = 0; this.vy = 0;
         } else {
             this.oldY = this.y; this.vy -= GRAVITY; this.x += this.vx; this.y += this.vy; this.vx *= FRICTION;
             
@@ -208,6 +221,7 @@ class Fighter {
     attack(target) {
         if(this.isAtk || this.isGrabbingLedge) return;
         if(this.holding === "bomb") { this.throwBomb(); return; }
+        if(this.holding === "gravity") { this.placeGravity(); return; }
         this.isAtk = true;
         if(this.type === "gun") { 
             for(let i=0; i<3; i++) setTimeout(() => this.fireProjectile(this.meleeP, 22), i * (100 / gameSpeedMultiplier));
@@ -267,6 +281,14 @@ class Fighter {
         document.getElementById("game-stage").appendChild(b.el); document.getElementById("game-stage").appendChild(b.hintEl); items.push(b);
     }
 
+    placeGravity() {
+        this.holding = null;
+        const g = { x: this.x, y: this.y, vy: 0, type: "gravity_active", timer: 400, range: 150, el: document.createElement("div"), hintEl: document.createElement("div") };
+        g.el.className = "item"; g.el.style.background = "#34495e"; g.el.style.borderRadius = "50%"; g.el.innerText = "🌀";
+        g.hintEl.className = "gravity-range"; g.hintEl.style.width = (g.range*2)+"px"; g.hintEl.style.height = (g.range*2)+"px";
+        document.getElementById("game-stage").appendChild(g.el); document.getElementById("game-stage").appendChild(g.hintEl); items.push(g);
+    }
+
     fireProjectile(pwr, speed, isSuper = false) {
         const p = { x: this.x + (this.dir*30), y: this.y + 25, vx: this.dir*speed, owner: this, pwr, el: document.createElement("div") };
         p.el.className = "projectile"; p.el.style.background = isSuper ? "lime" : "#ffff00";
@@ -275,7 +297,7 @@ class Fighter {
     }
 
     hit(target, pwr, kbM) { 
-        if(target.isInvincible) return; 
+        if(target.isInvincible || target.buffs.shield > 0) return; 
         target.isGrabbingLedge = false;
         target.damage += pwr; this.sp = Math.min(100, this.sp + pwr * 2.2); target.sp = Math.min(100, target.sp + pwr * 0.9);
         const kb = ((target.damage / 7) + 8) * kbM; 
@@ -302,26 +324,21 @@ function startGame(m) {
 
 function loop() {
     if(!isRunning) return;
-    
-    // スピード倍率に応じて物理演算を回す
-    // 倍率が高ければ1フレームに複数回回す、低ければ物理係数を調整
     const subSteps = gameSpeedMultiplier >= 1.0 ? 2 : 1;
     for(let step=0; step < subSteps; step++) {
         updatePhysics();
     }
-    
     requestAnimationFrame(loop);
 }
 
 function updatePhysics() {
-    // 物理定数に倍率を反映 (低速時の「もっさり感」を出す)
-    // subStepsで回しきれない端数や低速はここでの係数調整
-    const internalSpeed = gameSpeedMultiplier < 1.0 ? gameSpeedMultiplier : 0.75; // 基準を0.75付近に
+    const internalSpeed = gameSpeedMultiplier < 1.0 ? gameSpeedMultiplier : 0.75; 
 
     // P1入力
     if(!p1.isGrabbingLedge) {
-        if(keys[p1.controls.left]) { p1.vx -= p1.accel * internalSpeed; p1.dir = -1; }
-        if(keys[p1.controls.right]) { p1.vx += p1.accel * internalSpeed; p1.dir = 1; }
+        let p1Accel = p1.accel * (p1.buffs.speed > 0 ? 1.5 : 1);
+        if(keys[p1.controls.left]) { p1.vx -= p1Accel * internalSpeed; p1.dir = -1; }
+        if(keys[p1.controls.right]) { p1.vx += p1Accel * internalSpeed; p1.dir = 1; }
     }
     
     // COM AI
@@ -351,42 +368,71 @@ function updatePhysics() {
         }
     } else {
         if(!p2.isGrabbingLedge) {
-            if(keys[p2.controls.left]) { p2.vx -= p2.accel * internalSpeed; p2.dir = -1; }
-            if(keys[p2.controls.right]) { p2.vx += p2.accel * internalSpeed; p2.dir = 1; }
+            let p2Accel = p2.accel * (p2.buffs.speed > 0 ? 1.5 : 1);
+            if(keys[p2.controls.left]) { p2.vx -= p2Accel * internalSpeed; p2.dir = -1; }
+            if(keys[p2.controls.right]) { p2.vx += p2Accel * internalSpeed; p2.dir = 1; }
         }
     }
     
     p1.update(); p2.update();
     
     items.forEach((it, i) => {
-        if(it.type !== "bomb_active") {
+        // アイテム取得判定 (設置済みの重力場・爆弾以外)
+        if(it.type !== "bomb_active" && it.type !== "gravity_active") {
             [p1, p2].forEach(p => {
                 if(Math.abs(p.x - it.x) < 40 && Math.abs(p.y - it.y) < 40) {
-                    if(it.type === "heal") { p.damage = Math.max(0, p.damage - 45); it.el.remove(); items.splice(i, 1); }
-                    else if(it.type === "bomb_item" && !p.holding) { p.holding = "bomb"; it.el.remove(); items.splice(i, 1); }
+                    if(it.type === "heal") { p.damage = Math.max(0, p.damage - 45); }
+                    else if(it.type === "bomb_item" && !p.holding) { p.holding = "bomb"; }
+                    else if(it.type === "speed_boots") { p.buffs.speed = 400; showEffect("SPEED UP!!"); }
+                    else if(it.type === "shield") { p.buffs.shield = 300; showEffect("SHIELD ON!!"); }
+                    else if(it.type === "gravity_trap" && !p.holding) { p.holding = "gravity"; }
+                    
+                    if (it.type !== "gravity_trap" || p.holding === "gravity") {
+                        it.el.remove(); items.splice(i, 1);
+                    }
                 }
             });
         }
-        it.vy -= 0.5 * internalSpeed; it.x += (it.vx || 0); it.y += it.vy; it.vx *= 0.98;
-        platforms.forEach(pl => { if(it.vy <= 0 && it.x > pl.x-20 && it.x < pl.x+pl.w && it.y <= pl.y && it.y > pl.y-20) { it.y = pl.y; it.vy = 0; it.vx = 0; } });
+
+        // 共通の物理
+        if(it.type !== "gravity_active") {
+            it.vy -= 0.5 * internalSpeed; it.x += (it.vx || 0); it.y += it.vy; it.vx *= 0.98;
+            platforms.forEach(pl => { if(it.vy <= 0 && it.x > pl.x-20 && it.x < pl.x+pl.w && it.y <= pl.y && it.y > pl.y-20) { it.y = pl.y; it.vy = 0; it.vx = 0; } });
+        }
         it.el.style.left = it.x + "px"; it.el.style.bottom = it.y + "px";
+
+        // 爆弾ロジック
         if(it.type === "bomb_active") {
             it.timer -= internalSpeed * 1.5; it.hintEl.style.left = it.x + "px"; it.hintEl.style.bottom = it.y + "px";
             if(it.timer < 40) it.hintEl.style.display = "block";
             if(it.timer <= 0) {
                 [p1, p2].forEach(p => {
-                    if(p.isInvincible && p.type === "gun" && p.isAtk) return;
-                    if(Math.sqrt((p.x-it.x)**2 + (p.y-it.y)**2) < it.range) { p.damage += 35; p.vx = (p.x < it.x ? -20 : 20); p.vy = 16; p.sp = Math.min(100, p.sp + 15); p.isGrabbingLedge = false; }
+                    if(p.isInvincible || p.buffs.shield > 0) return;
+                    if(Math.sqrt((p.x-it.x)**2 + (p.y-it.y)**2) < it.range) { 
+                        p.damage += 35; p.vx = (p.x < it.x ? -20 : 20); p.vy = 16; p.sp = Math.min(100, p.sp + 15); p.isGrabbingLedge = false; 
+                    }
                 });
                 showEffect("BOOM!"); it.el.remove(); it.hintEl.remove(); items.splice(i, 1);
             }
+        }
+
+        // 重力場ロジック
+        if(it.type === "gravity_active") {
+            it.timer -= internalSpeed; it.hintEl.style.left = it.x + "px"; it.hintEl.style.bottom = it.y + "px";
+            [p1, p2].forEach(p => {
+                const dist = Math.sqrt((p.x - it.x)**2 + (p.y - it.y)**2);
+                if(dist < it.range) { p.vy -= 1.2; p.vx *= 0.85; }
+            });
+            if(it.timer <= 0) { it.el.remove(); it.hintEl.remove(); items.splice(i, 1); }
         }
     });
     
     projectiles.forEach((p, i) => {
         p.x += p.vx * (gameSpeedMultiplier / 0.75); p.el.style.left = p.x + "px"; p.el.style.bottom = p.y + "px";
         let target = p.owner === p1 ? p2 : p1;
-        if(Math.abs(p.x - target.x) < 40 && Math.abs(p.y - target.y) < 50) { p.owner.hit(target, p.pwr, 1.4); p.el.remove(); projectiles.splice(i, 1); }
+        if(Math.abs(p.x - target.x) < 40 && Math.abs(p.y - target.y) < 50) { 
+            p.owner.hit(target, p.pwr, 1.4); p.el.remove(); projectiles.splice(i, 1); 
+        }
         else if(p.x < -300 || p.x > 1400) { p.el.remove(); projectiles.splice(i, 1); }
     });
 }
@@ -394,16 +440,29 @@ function updatePhysics() {
 function setupStage() {
     platforms = [{x: 150, y: 120, w: 800}, {x: 300, y: 280, w: 200}, {x: 600, y: 280, w: 200}];
     const stageEl = document.getElementById("game-stage");
-    stageEl.querySelectorAll('.platform, .item, .projectile, .explosion-hint').forEach(el => el.remove());
+    stageEl.querySelectorAll('.platform, .item, .projectile, .explosion-hint, .gravity-range').forEach(el => el.remove());
     platforms.forEach(p => {
         const div = document.createElement("div"); div.className = "platform";
         div.style.left = p.x + "px"; div.style.bottom = p.y + "px"; div.style.width = p.w + "px"; div.style.height = "15px"; stageEl.appendChild(div);
     });
 }
+
 function breakCrate(it) {
-    const isBomb = Math.random() < 0.4; it.type = isBomb ? "bomb_item" : "heal";
-    it.el.classList.remove("crate"); it.el.style.background = isBomb ? "#555" : "#2ecc71"; it.el.innerText = isBomb ? "💣" : "♥";
+    const rand = Math.random();
+    if (rand < 0.25) {
+        it.type = "bomb_item"; it.el.style.background = "#555"; it.el.innerText = "💣";
+    } else if (rand < 0.50) {
+        it.type = "heal"; it.el.style.background = "#2ecc71"; it.el.innerText = "♥";
+    } else if (rand < 0.65) {
+        it.type = "speed_boots"; it.el.style.background = "#f1c40f"; it.el.innerText = "⚡";
+    } else if (rand < 0.80) {
+        it.type = "shield"; it.el.style.background = "#9b59b6"; it.el.innerText = "🛡️";
+    } else {
+        it.type = "gravity_trap"; it.el.style.background = "#34495e"; it.el.innerText = "🌀";
+    }
+    it.el.classList.remove("crate");
 }
+
 function spawnCrate() {
     if(document.getElementById("item-spawn").value === "off") return;
     const it = { x: 200 + Math.random()*700, y: 600, vy: 0, type: "crate", el: document.createElement("div") };
