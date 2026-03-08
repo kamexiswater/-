@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Browser Smash - 5 Items Edition</title>
+    <title>Browser Smash - 5 Items Edition (Smart AI)</title>
     <style>
         body { margin: 0; background: #1a1a1a; color: white; font-family: sans-serif; text-align: center; overflow: hidden; }
         #menu, #result-screen {
@@ -283,7 +283,6 @@ class Fighter {
         const kb = ((target.damage / 7) + 8) * kbM; 
         target.vx = (target.x < this.x ? -1 : 1) * kb; target.vy = kb * 0.3 + 5; 
     }
-    // アイテム使用関数
     throwBomb() {
         this.holding = null;
         const b = { x: this.x + (this.dir * 10), y: this.y, vx: this.dir * 8, vy: 5, type: "bomb_active", timer: 100, range: 200, el: document.createElement("div"), hintEl: document.createElement("div") };
@@ -332,15 +331,48 @@ function updatePhysics() {
         if(keys[p1.controls.right]) { p1.vx += p1.accel * internalSpeed; p1.dir = 1; }
     }
     
+    // --- 強化版COMロジック ---
     if(mode === "com") {
         const lvl = document.getElementById("com-lvl").value;
-        const decisionChance = lvl === "max" ? 0.98 : (lvl === "3" ? 0.75 : 0.4);
-        if (p2.isGrabbingLedge) { if (Math.random() < 0.05) p2.jump(); } 
-        else if (p2.buffs.frozen <= 0 && Math.random() < decisionChance) {
-            let targetX = p1.x;
-            p2.vx += (p2.x < targetX ? p2.accel : -p2.accel) * internalSpeed;
-            if (Math.abs(p1.x - p2.x) < 200) { if (p2.sp >= 100) p2.trySuper(p1); else p2.attack(p1); }
-            if (p1.y > p2.y + 60) p2.jump();
+        const decisionChance = lvl === "max" ? 0.99 : (lvl === "3" ? 0.8 : 0.4);
+        
+        if (p2.buffs.frozen <= 0 && Math.random() < decisionChance) {
+            const stageWidth = 1100;
+            const isOffStage = p2.x < 150 || p2.x > 950 || p2.y < 120;
+            
+            // 1. 復帰ロジック (最優先)
+            if (p2.isGrabbingLedge) {
+                p2.jump();
+            } else if (isOffStage) {
+                let targetPlatformX = (p2.x < 550) ? 150 : 800;
+                if (p2.x < targetPlatformX) { p2.vx += p2.accel * 1.2; p2.dir = 1; }
+                else { p2.vx -= p2.accel * 1.2; p2.dir = -1; }
+                if (p2.vy < 0) p2.jump();
+            } 
+            // 2. 戦闘ロジック (ステージ上にいる時)
+            else {
+                const dist = Math.abs(p1.x - p2.x);
+                const verticalDist = Math.abs(p1.y - p2.y);
+
+                if (p2.type === "gun" || p2.type === "magic") {
+                    if (dist < 300) {
+                        if (p2.x < p1.x) p2.vx -= p2.accel; else p2.vx += p2.accel;
+                    } else if (dist > 500) {
+                        if (p2.x < p1.x) p2.vx += p2.accel; else p2.vx -= p2.accel;
+                    }
+                } else {
+                    if (p2.x < p1.x) { p2.vx += p2.accel; p2.dir = 1; }
+                    else { p2.vx -= p2.accel; p2.dir = -1; }
+                }
+
+                if (p1.y > p2.y + 50 || (isOffStage && p2.y < 100)) p2.jump();
+
+                const attackRange = (p2.type === "gun" || p2.type === "magic") ? 600 : (p2.type === "sword" ? 130 : 80);
+                if (dist < attackRange && verticalDist < 80) {
+                    p2.dir = (p2.x < p1.x) ? 1 : -1;
+                    if (p2.sp >= 100) { p2.trySuper(p1); } else { p2.attack(p1); }
+                }
+            }
         }
     } else if(!p2.isGrabbingLedge && p2.buffs.frozen <= 0) {
         if(keys[p2.controls.left]) { p2.vx -= p2.accel * internalSpeed; p2.dir = -1; }
@@ -350,7 +382,6 @@ function updatePhysics() {
     p1.update(); p2.update();
     
     items.forEach((it, i) => {
-        // アイテム取得判定
         if(["heal", "shield", "bomb_item", "gravity_trap", "ice_item"].includes(it.type)) {
             [p1, p2].forEach(p => {
                 if(Math.abs(p.x - it.x) < 40 && Math.abs(p.y - it.y) < 40) {
@@ -364,7 +395,6 @@ function updatePhysics() {
             });
         }
 
-        // アクティブな妨害アイテムの挙動
         if(it.type === "gravity_active") {
             it.timer -= internalSpeed;
             it.hintEl.style.left = it.x + "px"; it.hintEl.style.bottom = it.y + "px";
@@ -397,7 +427,6 @@ function updatePhysics() {
             if(it.x < -100 || it.x > 1200) { it.el.remove(); items.splice(i, 1); }
         }
 
-        // 物理移動（落下物）
         if(!["gravity_active"].includes(it.type)) {
             it.vy -= 0.5 * internalSpeed; it.x += (it.vx || 0); it.y += it.vy;
             platforms.forEach(pl => { if(it.vy <= 0 && it.x > pl.x-20 && it.x < pl.x+pl.w && it.y <= pl.y && it.y > pl.y-20) { it.y = pl.y; it.vy = 0; it.vx *= 0.8; } });
@@ -429,12 +458,11 @@ function breakCrate(it) {
     const stageEl = document.getElementById("game-stage");
     const rand = Math.random();
     let type, content, color;
-    // 5種類のアイテム抽選
-    if (rand < 0.20) { type = "bomb_item"; color = "#555"; content = "💣"; } // 妨害1
-    else if (rand < 0.40) { type = "ice_item"; color = "#00d2ff"; content = "❄️"; } // 妨害2
-    else if (rand < 0.60) { type = "gravity_trap"; color = "#34495e"; content = "🌀"; } // 妨害3
-    else if (rand < 0.80) { type = "heal"; color = "#2ecc71"; content = "♥"; } // 利益1
-    else { type = "shield"; color = "#9b59b6"; content = "🛡️"; } // 利益2
+    if (rand < 0.20) { type = "bomb_item"; color = "#555"; content = "💣"; }
+    else if (rand < 0.40) { type = "ice_item"; color = "#00d2ff"; content = "❄️"; }
+    else if (rand < 0.60) { type = "gravity_trap"; color = "#34495e"; content = "🌀"; }
+    else if (rand < 0.80) { type = "heal"; color = "#2ecc71"; content = "♥"; }
+    else { type = "shield"; color = "#9b59b6"; content = "🛡️"; }
 
     const newItem = { x: it.x, y: it.y, vy: 5, type: type, el: document.createElement("div") };
     newItem.el.className = "item"; newItem.el.style.background = color; newItem.el.innerText = content;
