@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Browser Smash - Gunner Overload: Items Edition</title>
+    <title>Browser Smash - Balance Patch v1.1</title>
     <style>
         body { margin: 0; background: #1a1a1a; color: white; font-family: sans-serif; text-align: center; overflow: hidden; }
         #menu, #result-screen {
@@ -24,6 +24,10 @@
         .sp-bar-bg { width: 100%; height: 8px; background: #444; border-radius: 4px; overflow: hidden; margin-top: 5px; border: 1px solid #000; }
         .sp-bar-fill { width: 0%; height: 100%; background: #3498db; transition: width 0.2s; box-shadow: 0 0 5px #3498db; }
         
+        /* 銃のリロードゲージ */
+        .reload-bar-bg { width: 100%; height: 4px; background: #222; margin-top: 2px; border-radius: 2px; display: none; }
+        .reload-bar-fill { width: 100%; height: 100%; background: #e74c3c; }
+
         #game-stage {
             width: 1100px; height: 600px; margin: 5px auto;
             background: linear-gradient(to bottom, #050505, #1a1a2e, #16213e);
@@ -33,10 +37,10 @@
         .player { position: absolute; width: 40px; height: 60px; z-index: 10; transition: filter 0.1s, box-shadow 0.2s; border-radius: 10px; }
         
         .weapon-sword {
-            position: absolute; width: 6px; height: 45px; background: #ccc;
-            border: 1px solid #333; left: 45px; top: 15px; border-radius: 2px;
+            position: absolute; width: 7px; height: 50px; background: #ccc;
+            border: 1px solid #333; left: 45px; top: 10px; border-radius: 2px;
             transform-origin: bottom center; transform: rotate(20deg);
-            box-shadow: 0 0 5px rgba(255,255,255,0.5);
+            box-shadow: 0 0 8px rgba(255,255,255,0.6);
         }
         
         .projectile { position: absolute; width: 14px; height: 8px; border-radius: 4px; z-index: 15; box-shadow: 0 0 8px #ff0; }
@@ -49,11 +53,11 @@
 </head>
 <body>
     <div id="menu">
-        <h1 style="color: #4cd137;">BROWSER SMASH <span style="font-size:12px; color:gold;">SPEED OVERLOAD</span></h1>
+        <h1 style="color: #4cd137;">BROWSER SMASH <span style="font-size:12px; color:gold;">BALANCE PATCH v1.1</span></h1>
         <div class="config-grid">
             <strong>【P1設定】</strong><strong>【P2/COM設定】</strong>
-            <div>タイプ: <select id="type1"><option value="gun" selected>銃(Range)</option><option value="fighter">格闘(Speed)</option><option value="sword">剣(Balance)</option></select></div>
-            <div>タイプ: <select id="type2"><option value="gun">銃(Range)</option><option value="fighter">格闘(Speed)</option><option value="sword" selected>剣(Balance)</option></select></div>
+            <div>タイプ: <select id="type1"><option value="gun">銃(Range)</option><option value="fighter">格闘(Speed)</option><option value="sword" selected>剣(Balance)</option></select></div>
+            <div>タイプ: <select id="type2"><option value="gun" selected>銃(Range)</option><option value="fighter">格闘(Speed)</option><option value="sword">剣(Balance)</option></select></div>
             
             <div>操作: <select id="style1" onchange="updateGuide()"><option value="wasd">WASD設定</option><option value="arrow">矢印設定</option></select></div>
             <div>操作: <select id="style2" onchange="updateGuide()"><option value="arrow" selected>矢印設定</option><option value="wasd">WASD設定</option></select></div>
@@ -74,8 +78,8 @@
     <div id="result-screen" style="display:none;"><h1 id="winner-text"></h1><button onclick="location.reload()">タイトルへ</button></div>
     <div id="game-container">
         <div id="ui-container">
-            <div class="status-card" id="card-p1">P1 <div id="p1-val" class="damage-percent">0%</div><div id="p1-sub">●●●</div><div class="sp-bar-bg"><div id="p1-sp" class="sp-bar-fill"></div></div><div id="p1-holding" style="color:#ff0; font-size:12px;"></div></div>
-            <div class="status-card" id="card-p2">P2 <div id="p2-val" class="damage-percent">0%</div><div id="p2-sub">●●●</div><div class="sp-bar-bg"><div id="p2-sp" class="sp-bar-fill"></div></div><div id="p2-holding" style="color:#ff0; font-size:12px;"></div></div>
+            <div class="status-card" id="card-p1">P1 <div id="p1-val" class="damage-percent">0%</div><div id="p1-sub">●●●</div><div class="sp-bar-bg"><div id="p1-sp" class="sp-bar-fill"></div></div><div class="reload-bar-bg" id="p1-reload-ui"><div id="p1-reload-fill" class="reload-bar-fill"></div></div><div id="p1-holding" style="color:#ff0; font-size:12px;"></div></div>
+            <div class="status-card" id="card-p2">P2 <div id="p2-val" class="damage-percent">0%</div><div id="p2-sub">●●●</div><div class="sp-bar-bg"><div id="p2-sp" class="sp-bar-fill"></div></div><div class="reload-bar-bg" id="p2-reload-ui"><div id="p2-reload-fill" class="reload-bar-fill"></div></div><div id="p2-holding" style="color:#ff0; font-size:12px;"></div></div>
         </div>
         <div id="game-stage">
             <div id="overlay"></div>
@@ -109,6 +113,8 @@ class Fighter {
         this.id = id; this.startX = x; this.color = color; this.label = label;
         this.el = null; this.holding = null; this.sp = 0;
         this.buffs = { speed: 0, shield: 0 };
+        this.ammo = 100; // 銃用弾数/熱量
+        this.isReloading = false;
     }
     reset(full) {
         if(full) { this.stock = 3; this.sp = 0; }
@@ -118,15 +124,18 @@ class Fighter {
         this.isGrabbingLedge = false;
         this.ledgeCooldown = 0;
         this.buffs = { speed: 0, shield: 0 };
+        this.ammo = 100;
+        this.isReloading = false;
         this.controls = getControls(this.id);
         this.isInvincible = true; setTimeout(() => this.isInvincible = false, 1500);
         
         this.type = document.getElementById(this.id==="p1"?"type1":"type2").value;
         const baseSpeed = 1.4;
+        // [攻撃力, 硬直, 加速, ジャンプ力]
         const stats = { 
-            fighter: [14, 280, baseSpeed, 16], 
-            sword: [10, 280, baseSpeed * 0.85, 15], 
-            gun: [7, 350, baseSpeed * 0.9, 15]
+            fighter: [14, 280, baseSpeed * 1.1, 16.5], // 加速微増
+            sword: [11, 320, baseSpeed * 0.85, 15], // 攻撃微増
+            gun: [7, 450, baseSpeed * 0.9, 15] // 硬直増加 (280->450)
         };
         [this.meleeP, this.cd, this.accel, this.jumpV] = stats[this.type];
         
@@ -142,6 +151,9 @@ class Fighter {
             <div style="width:20px;height:20px;background:#ffd1a4;border-radius:50%;margin:0 auto;border:2px solid #000;"></div>
             <div style="width:22px;height:30px;background:${this.color};margin:-2px auto;border:2px solid #000;border-radius:4px;"></div>
             ${swordHtml}`;
+        
+        // リロードUIの表示制御
+        document.getElementById(this.id + "-reload-ui").style.display = (this.type === "gun") ? "block" : "none";
     }
     
     jump() { 
@@ -161,6 +173,18 @@ class Fighter {
     update() {
         if (this.ledgeCooldown > 0) this.ledgeCooldown--;
         
+        // 銃のリロード/冷却ロジック
+        if(this.type === "gun") {
+            if(this.isReloading) {
+                this.ammo += 1.2;
+                if(this.ammo >= 100) { this.ammo = 100; this.isReloading = false; }
+            } else if(this.ammo < 100) {
+                this.ammo += 0.3; // 自然冷却
+            }
+            document.getElementById(this.id+"-reload-fill").style.width = this.ammo + "%";
+            document.getElementById(this.id+"-reload-fill").style.background = this.isReloading ? "#e74c3c" : "#3498db";
+        }
+
         // バフ処理
         if(this.buffs.speed > 0) {
             this.buffs.speed--;
@@ -175,7 +199,14 @@ class Fighter {
         if (this.isGrabbingLedge) {
             this.vx = 0; this.vy = 0;
         } else {
-            this.oldY = this.y; this.vy -= GRAVITY; this.x += this.vx; this.y += this.vy; this.vx *= FRICTION;
+            this.oldY = this.y; 
+            this.vy -= GRAVITY; 
+            this.x += this.vx; 
+            this.y += this.vy;
+            
+            // 格闘タイプは空中制動が強い
+            let airControl = (this.type === "fighter" ? 0.96 : FRICTION);
+            this.vx *= airControl;
             
             platforms.forEach(p => {
                 if (this.vy <= 0 && (this.x + 25 > p.x && this.x + 5 < p.x + p.w)) {
@@ -205,8 +236,9 @@ class Fighter {
                 const sEl = document.getElementById(this.id + "-sword");
                 if(sEl) sEl.style.transform = this.isAtk ? "rotate(130deg)" : "rotate(20deg)";
             }
-            if(this.type === "gun" && this.isAtk) this.el.style.filter = "drop-shadow(0 0 5px #ff0)";
-            else if (!this.isAtk) this.el.style.filter = "";
+            if(this.type === "gun" && (this.isAtk || this.isReloading)) {
+                this.el.style.filter = this.isReloading ? "grayscale(1) brightness(0.7)" : "drop-shadow(0 0 5px #ff0)";
+            } else if (!this.isAtk) this.el.style.filter = "";
         }
         document.getElementById(this.id+"-val").innerText = Math.floor(this.damage) + "%";
         document.getElementById(this.id+"-sub").innerText = "●".repeat(Math.max(0, this.stock));
@@ -219,17 +251,32 @@ class Fighter {
     out() { this.stock--; if(this.stock <= 0) endGame(this.id==="p1"?"P2":"P1"); else { showEffect("K.O."); this.reset(false); } }
 
     attack(target) {
-        if(this.isAtk || this.isGrabbingLedge) return;
+        if(this.isAtk || this.isGrabbingLedge || this.isReloading) return;
         if(this.holding === "bomb") { this.throwBomb(); return; }
         if(this.holding === "gravity") { this.placeGravity(); return; }
-        this.isAtk = true;
-        if(this.type === "gun") { 
-            for(let i=0; i<3; i++) setTimeout(() => this.fireProjectile(this.meleeP, 22), i * (100 / gameSpeedMultiplier));
+        
+        if(this.type === "gun") {
+            if(this.ammo <= 10) { this.isReloading = true; return; }
+            this.ammo -= 25; // 1射撃で25消費
+            this.isAtk = true;
+            for(let i=0; i<3; i++) setTimeout(() => { if(isRunning) this.fireProjectile(this.meleeP, 22); }, i * (100 / gameSpeedMultiplier));
         } else {
-            const reach = this.type === "sword" ? 115 : 75;
+            this.isAtk = true;
+            const reach = this.type === "sword" ? 125 : 75; // 剣のリーチを1.1倍に
             if(Math.abs(this.x - target.x) < reach && Math.abs(this.y - target.y) < 70) {
                 const kb = this.type === "fighter" ? 1.6 : 1.4;
                 this.hit(target, this.meleeP, kb);
+            }
+            // 剣：弾丸跳ね返し判定
+            if(this.type === "sword") {
+                projectiles.forEach(p => {
+                    if(p.owner !== this && Math.abs(this.x - p.x) < 100 && Math.abs(this.y - p.y) < 80) {
+                        p.owner = this;
+                        p.vx *= -1.5; // 加速して跳ね返す
+                        p.el.style.background = "cyan";
+                        showEffect("REFLECT!!");
+                    }
+                });
             }
         }
         items.forEach(it => { if(it.type === "crate" && Math.abs(this.x - it.x) < 80 && Math.abs(this.y - it.y) < 60) breakCrate(it); });
@@ -261,15 +308,15 @@ class Fighter {
             const cyclone = setInterval(() => {
                 rot += 45;
                 const sEl = document.getElementById(this.id + "-sword");
-                if(sEl) sEl.style.transform = `rotate(${rot}deg) scale(1.5)`;
-                if(Math.sqrt((this.x - target.x)**2 + (this.y - target.y)**2) < 160) this.hit(target, 12, 1.8);
+                if(sEl) sEl.style.transform = `rotate(${rot}deg) scale(1.6)`;
+                if(Math.sqrt((this.x - target.x)**2 + (this.y - target.y)**2) < 170) this.hit(target, 12, 1.8);
                 if(rot >= 1080) { clearInterval(cyclone); this.isAtk = false; this.el.style.filter = ""; if(sEl) sEl.style.transform = "rotate(20deg) scale(1)"; }
             }, 30 / gameSpeedMultiplier);
         } else if(this.type === "gun") {
             showEffect("GENOCIDE BARRAGE!!");
             this.isInvincible = true;
             for(let i=0; i<20; i++) setTimeout(() => { if(isRunning) this.fireProjectile(12, 40, true); }, i * (40 / gameSpeedMultiplier));
-            setTimeout(() => { this.isAtk = false; this.isInvincible = false; this.el.style.filter = ""; }, 1000 / gameSpeedMultiplier);
+            setTimeout(() => { this.isAtk = false; this.isInvincible = false; this.el.style.filter = ""; this.ammo = 100; }, 1000 / gameSpeedMultiplier);
         }
     }
 
@@ -324,15 +371,12 @@ function startGame(m) {
 
 function loop() {
     if(!isRunning) return;
-    const subSteps = gameSpeedMultiplier >= 1.0 ? 2 : 1;
-    for(let step=0; step < subSteps; step++) {
-        updatePhysics();
-    }
+    updatePhysics();
     requestAnimationFrame(loop);
 }
 
 function updatePhysics() {
-    const internalSpeed = gameSpeedMultiplier < 1.0 ? gameSpeedMultiplier : 0.75; 
+    const internalSpeed = gameSpeedMultiplier; 
 
     // P1入力
     if(!p1.isGrabbingLedge) {
@@ -377,7 +421,6 @@ function updatePhysics() {
     p1.update(); p2.update();
     
     items.forEach((it, i) => {
-        // アイテム取得判定 (設置済みの重力場・爆弾以外)
         if(it.type !== "bomb_active" && it.type !== "gravity_active") {
             [p1, p2].forEach(p => {
                 if(Math.abs(p.x - it.x) < 40 && Math.abs(p.y - it.y) < 40) {
@@ -394,14 +437,12 @@ function updatePhysics() {
             });
         }
 
-        // 共通の物理
         if(it.type !== "gravity_active") {
             it.vy -= 0.5 * internalSpeed; it.x += (it.vx || 0); it.y += it.vy; it.vx *= 0.98;
             platforms.forEach(pl => { if(it.vy <= 0 && it.x > pl.x-20 && it.x < pl.x+pl.w && it.y <= pl.y && it.y > pl.y-20) { it.y = pl.y; it.vy = 0; it.vx = 0; } });
         }
         it.el.style.left = it.x + "px"; it.el.style.bottom = it.y + "px";
 
-        // 爆弾ロジック
         if(it.type === "bomb_active") {
             it.timer -= internalSpeed * 1.5; it.hintEl.style.left = it.x + "px"; it.hintEl.style.bottom = it.y + "px";
             if(it.timer < 40) it.hintEl.style.display = "block";
@@ -416,7 +457,6 @@ function updatePhysics() {
             }
         }
 
-        // 重力場ロジック
         if(it.type === "gravity_active") {
             it.timer -= internalSpeed; it.hintEl.style.left = it.x + "px"; it.hintEl.style.bottom = it.y + "px";
             [p1, p2].forEach(p => {
@@ -428,7 +468,7 @@ function updatePhysics() {
     });
     
     projectiles.forEach((p, i) => {
-        p.x += p.vx * (gameSpeedMultiplier / 0.75); p.el.style.left = p.x + "px"; p.el.style.bottom = p.y + "px";
+        p.x += p.vx * internalSpeed; p.el.style.left = p.x + "px"; p.el.style.bottom = p.y + "px";
         let target = p.owner === p1 ? p2 : p1;
         if(Math.abs(p.x - target.x) < 40 && Math.abs(p.y - target.y) < 50) { 
             p.owner.hit(target, p.pwr, 1.4); p.el.remove(); projectiles.splice(i, 1); 
