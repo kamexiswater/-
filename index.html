@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Browser Smash - Balance Patch v1.2.1</title>
+    <title>Browser Smash - Unified Speed Edition</title>
     <style>
         body { margin: 0; background: #1a1a1a; color: white; font-family: sans-serif; text-align: center; overflow: hidden; }
         #menu, #result-screen {
@@ -35,18 +35,11 @@
         .platform { position: absolute; background: #444; border-bottom: 5px solid #222; border-radius: 4px; z-index: 1; }
         .player { position: absolute; width: 40px; height: 60px; z-index: 10; transition: filter 0.1s, box-shadow 0.2s; border-radius: 10px; }
         
-        /* 武器のビジュアル設定 */
         .weapon { position: absolute; transform-origin: bottom center; transition: transform 0.1s; }
-        
         .weapon-sword { width: 7px; height: 50px; background: #ccc; border: 1px solid #333; left: 45px; top: 10px; border-radius: 2px; box-shadow: 0 0 8px rgba(255,255,255,0.6); }
-        
         .weapon-staff { width: 6px; height: 55px; background: #8e44ad; border: 1px solid #4a235a; left: 45px; top: 5px; border-radius: 3px; }
         .staff-gem { position: absolute; top: -8px; left: -4px; width: 14px; height: 14px; background: #9b59b6; border-radius: 50%; box-shadow: 0 0 10px #dfa6ff; }
-        
-        /* 追加: 格闘グローブ */
         .weapon-glove { width: 15px; height: 15px; background: #ff0000; border: 2px solid #000; border-radius: 50%; left: 35px; top: 35px; }
-        
-        /* 追加: 銃 */
         .weapon-gun { width: 25px; height: 12px; background: #333; border: 1px solid #000; left: 35px; top: 30px; border-radius: 2px; }
         .weapon-gun::after { content: ""; position: absolute; right: 0; bottom: -8px; width: 8px; height: 10px; background: #333; border: 1px solid #000; }
 
@@ -60,7 +53,7 @@
 </head>
 <body>
     <div id="menu">
-        <h1 style="color: #4cd137;">BROWSER SMASH <span style="font-size:12px; color:gold;">BALANCE PATCH v1.2.1</span></h1>
+        <h1 style="color: #4cd137;">BROWSER SMASH <span style="font-size:12px; color:gold;">UNIFIED SPEED v1.3</span></h1>
         <div class="config-grid">
             <strong>【P1設定】</strong><strong>【P2/COM設定】</strong>
             <div>タイプ: <select id="type1"><option value="gun">銃(Range)</option><option value="fighter">格闘(Speed)</option><option value="sword" selected>剣(Balance)</option><option value="magic">魔法(Magic)</option></select></div>
@@ -116,7 +109,7 @@ class Fighter {
         this.buffs = { speed: 0, shield: 0 };
         this.ammo = 100;
         this.isReloading = false;
-        this.isUsingSuper = false; // SP技発動フラグを追加
+        this.isUsingSuper = false;
     }
     reset(full) {
         if(full) { this.stock = 3; this.sp = 0; }
@@ -128,12 +121,14 @@ class Fighter {
         this.controls = getControls(this.id);
         this.isInvincible = true; setTimeout(() => this.isInvincible = false, 1500);
         this.type = document.getElementById(this.id==="p1"?"type1":"type2").value;
+        
+        // 全タイプの移動速度(accel)をbaseSpeedに統一
         const baseSpeed = 1.4;
         const stats = { 
-            fighter: [14, 280, baseSpeed * 1.1, 16.5],
-            sword: [11, 320, baseSpeed * 0.85, 15],
-            gun: [7, 450, baseSpeed * 0.9, 15],
-            magic: [13, 550, baseSpeed * 0.8, 17.5]
+            fighter: [14, 280, baseSpeed, 16.5],
+            sword:   [11, 320, baseSpeed, 16.5],
+            gun:     [7,  450, baseSpeed, 16.5],
+            magic:   [13, 550, baseSpeed, 16.5]
         };
         [this.meleeP, this.cd, this.accel, this.jumpV] = stats[this.type];
         
@@ -244,7 +239,6 @@ class Fighter {
                 });
             }
         }
-        // 修正: 攻撃時にアイテムを壊す判定
         items.forEach(it => { if(it.type === "crate" && Math.abs(this.x - it.x) < 80 && Math.abs(this.y - it.y) < 60) breakCrate(it); });
         setTimeout(()=>this.isAtk=false, this.cd / gameSpeedMultiplier);
     }
@@ -307,7 +301,6 @@ class Fighter {
         if(target.isInvincible || target.buffs.shield > 0) return; 
         target.isGrabbingLedge = false;
         target.damage += pwr;
-        // 修正: SP技によるダメージではSPを回復しない仕様
         if(!this.isUsingSuper) {
             this.sp = Math.min(100, this.sp + pwr * 2.2);
         }
@@ -445,7 +438,6 @@ function breakCrate(it) {
     else if (rand < 0.80) { type = "shield"; color = "#9b59b6"; content = "🛡️"; }
     else { type = "gravity_trap"; color = "#34495e"; content = "🌀"; }
 
-    // 修正: 既存の箱を削除し、新しいアイテムを生成してリストを更新
     const newItem = { x: it.x, y: it.y, vy: 5, type: type, el: document.createElement("div") };
     newItem.el.className = "item";
     newItem.el.style.background = color;
