@@ -43,7 +43,6 @@
         .weapon-gun { width: 25px; height: 12px; background: #333; border: 1px solid #000; left: 35px; top: 30px; border-radius: 2px; }
         .weapon-gun::after { content: ""; position: absolute; right: 0; bottom: -8px; width: 8px; height: 10px; background: #333; border: 1px solid #000; }
 
-        /* ハンマー用スタイル */
         .weapon-hammer { width: 10px; height: 60px; background: #555; border: 2px solid #000; left: 40px; top: -10px; border-radius: 2px; position: absolute; }
         .hammer-head { position: absolute; top: -15px; left: -20px; width: 50px; height: 30px; background: #333; border: 3px solid #000; border-radius: 5px; }
 
@@ -162,7 +161,6 @@ class Fighter {
         const target = this.id === "p1" ? p2 : p1;
         if (this.ledgeCooldown > 0) this.ledgeCooldown--;
         
-        // ハンマーロジック
         if(this.buffs.hammer > 0) {
             this.buffs.hammer--;
             this.hammerRot += 35 * gameSpeedMultiplier;
@@ -217,10 +215,10 @@ class Fighter {
         this.isAtk = true;
         if(this.type === "gun") {
             if(this.ammo <= 10) { this.isReloading = true; this.isAtk = false; return; }
-            this.ammo -= 25; for(let i=0; i<3; i++) setTimeout(() => { if(isRunning) this.fireProjectile(this.meleeP, 22); }, i * (100 / gameSpeedMultiplier));
+            this.ammo -= 25; for(let i=0; i<3; i++) setTimeout(() => { if(isRunning) this.fireProjectile(this.meleeP, 18); }, i * (100 / gameSpeedMultiplier)); // 弾速を22から18に低下
         } else if(this.type === "magic") {
             if(this.ammo <= 20) { this.isReloading = true; this.isAtk = false; return; }
-            this.ammo -= 30; this.fireProjectile(this.meleeP, 15, false, "orange");
+            this.ammo -= 30; this.fireProjectile(this.meleeP, 18, false, "orange"); // 弾速を15から18に上昇
         } else {
             const reach = this.type === "sword" ? 125 : 75;
             if(Math.abs(this.x - target.x) < reach && Math.abs(this.y - target.y) < 70) this.hit(target, this.meleeP, this.type === "fighter" ? 1.6 : 1.4);
@@ -318,7 +316,6 @@ function updatePhysics() {
         if(keys[p1.controls.right]) { p1.vx += p1.accel * internalSpeed; p1.dir = 1; }
     }
     
-    // AI LOGIC 改良
     if(mode === "com") {
         const lvl = document.getElementById("com-lvl").value;
         const decisionChance = lvl === "max" ? 0.99 : (lvl === "3" ? 0.8 : 0.4);
@@ -326,7 +323,6 @@ function updatePhysics() {
             const isOffStage = p2.x < 150 || p2.x > 950 || p2.y < 120;
             
             if (p2.isGrabbingLedge) {
-                // 崖つかみ自滅防止ロジック: すぐにジャンプして内側へ
                 setTimeout(() => {
                     p2.jump();
                     p2.vx = (p2.x < 550) ? 10 : -10;
@@ -361,7 +357,6 @@ function updatePhysics() {
     
     p1.update(); p2.update();
     
-    // Items and Projectiles Logic
     items.forEach((it, i) => {
         if(["heal", "shield", "bomb_item", "gravity_trap", "ice_item", "hammer_item"].includes(it.type)) {
             [p1, p2].forEach(p => {
