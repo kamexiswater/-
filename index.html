@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Browser Smash - Balanced Edition</title>
+    <title>Browser Smash - Ultimate Item Edition</title>
     <style>
         body { margin: 0; background: #1a1a1a; color: white; font-family: sans-serif; text-align: center; overflow: hidden; }
         #menu, #result-screen {
@@ -43,6 +43,10 @@
         .weapon-gun { width: 25px; height: 12px; background: #333; border: 1px solid #000; left: 35px; top: 30px; border-radius: 2px; }
         .weapon-gun::after { content: ""; position: absolute; right: 0; bottom: -8px; width: 8px; height: 10px; background: #333; border: 1px solid #000; }
 
+        /* ハンマー用スタイル */
+        .weapon-hammer { width: 10px; height: 60px; background: #555; border: 2px solid #000; left: 40px; top: -10px; border-radius: 2px; position: absolute; }
+        .hammer-head { position: absolute; top: -15px; left: -20px; width: 50px; height: 30px; background: #333; border: 3px solid #000; border-radius: 5px; }
+
         .projectile { position: absolute; width: 14px; height: 8px; border-radius: 4px; z-index: 15; box-shadow: 0 0 8px #ff0; }
         .item { position: absolute; width: 34px; height: 34px; z-index: 5; display: flex; justify-content: center; align-items: center; font-weight: bold; border-radius: 4px; font-size: 20px; }
         .crate { background: #8b4513; border: 2px solid #5d2e0a; color: #ffd700; cursor: default; }
@@ -53,7 +57,7 @@
 </head>
 <body>
     <div id="menu">
-        <h1 style="color: #4cd137;">BROWSER SMASH <span style="font-size:12px; color:gold;">BALANCED</span></h1>
+        <h1 style="color: #4cd137;">BROWSER SMASH <span style="font-size:12px; color:gold;">ULTIMATE ITEM</span></h1>
         <div class="config-grid">
             <strong>【P1設定】</strong><strong>【P2/COM設定】</strong>
             <div>タイプ: <select id="type1"><option value="gun">銃(Range)</option><option value="fighter">格闘(Speed)</option><option value="sword" selected>剣(Balance)</option><option value="magic">魔法(Magic)</option></select></div>
@@ -106,8 +110,9 @@ class Fighter {
     constructor(id, x, color, label) {
         this.id = id; this.startX = x; this.color = color; this.label = label;
         this.el = null; this.holding = null; this.sp = 0;
-        this.buffs = { shield: 0, frozen: 0 };
+        this.buffs = { shield: 0, frozen: 0, hammer: 0 };
         this.ammo = 100; this.isReloading = false; this.isUsingSuper = false;
+        this.hammerRot = 0;
     }
     reset(full) {
         if(full) { this.stock = 3; this.sp = 0; }
@@ -115,7 +120,7 @@ class Fighter {
         this.oldY = 350; this.vx = 0; this.vy = 0; this.dir = (this.x < 550) ? 1 : -1;
         this.jumps = 0; this.isAtk = false; this.isUsingSuper = false;
         this.isGrabbingLedge = false; this.ledgeCooldown = 0;
-        this.buffs = { shield: 0, frozen: 0 }; this.ammo = 100; this.isReloading = false;
+        this.buffs = { shield: 0, frozen: 0, hammer: 0 }; this.ammo = 100; this.isReloading = false;
         this.controls = getControls(this.id);
         this.isInvincible = true; setTimeout(() => this.isInvincible = false, 1500);
         this.type = document.getElementById(this.id==="p1"?"type1":"type2").value;
@@ -130,27 +135,45 @@ class Fighter {
             this.el = document.createElement("div"); this.el.id = this.id; this.el.className = `player`;
             document.getElementById("game-stage").appendChild(this.el);
         }
-        this.updateWeaponView();
-        document.getElementById(this.id + "-reload-ui").style.display = (this.type === "gun" || this.type === "magic") ? "block" : "none";
+        this.updateWeaponAppearance();
     }
-    updateWeaponView() {
+    updateWeaponAppearance() {
         let weaponHtml = "";
-        if(this.type === "sword") weaponHtml = `<div class="weapon weapon-sword" id="${this.id}-weapon"></div>`;
-        else if(this.type === "magic") weaponHtml = `<div class="weapon weapon-staff" id="${this.id}-weapon"><div class="staff-gem"></div></div>`;
-        else if(this.type === "fighter") weaponHtml = `<div class="weapon weapon-glove" id="${this.id}-weapon"></div>`;
-        else if(this.type === "gun") weaponHtml = `<div class="weapon weapon-gun" id="${this.id}-weapon"></div>`;
+        if(this.buffs.hammer > 0) {
+            weaponHtml = `<div class="weapon weapon-hammer" id="${this.id}-weapon"><div class="hammer-head"></div></div>`;
+        } else {
+            if(this.type === "sword") weaponHtml = `<div class="weapon weapon-sword" id="${this.id}-weapon"></div>`;
+            else if(this.type === "magic") weaponHtml = `<div class="weapon weapon-staff" id="${this.id}-weapon"><div class="staff-gem"></div></div>`;
+            else if(this.type === "fighter") weaponHtml = `<div class="weapon weapon-glove" id="${this.id}-weapon"></div>`;
+            else if(this.type === "gun") weaponHtml = `<div class="weapon weapon-gun" id="${this.id}-weapon"></div>`;
+        }
         this.el.innerHTML = `<div style="position:absolute;top:-25px;width:100%;text-align:center;font-size:11px;">${this.label}</div>
             <div style="width:20px;height:20px;background:#ffd1a4;border-radius:50%;margin:0 auto;border:2px solid #000;"></div>
             <div style="width:22px;height:30px;background:${this.color};margin:-2px auto;border:2px solid #000;border-radius:4px;"></div>
             ${weaponHtml}`;
+        document.getElementById(this.id + "-reload-ui").style.display = (this.type === "gun" || this.type === "magic") ? "block" : "none";
     }
     jump() { 
         if(this.buffs.frozen > 0) return;
-        if(this.isGrabbingLedge) { this.isGrabbingLedge = false; this.vy = this.jumpV; this.jumps = 1; this.ledgeCooldown = 60; return; }
+        if(this.isGrabbingLedge) { this.isGrabbingLedge = false; this.vy = this.jumpV; this.jumps = 1; this.ledgeCooldown = 40; return; }
         if(this.jumps < 2) { this.vy = this.jumpV; this.jumps++; } 
     }
     update() {
+        const target = this.id === "p1" ? p2 : p1;
         if (this.ledgeCooldown > 0) this.ledgeCooldown--;
+        
+        // ハンマーロジック
+        if(this.buffs.hammer > 0) {
+            this.buffs.hammer--;
+            this.hammerRot += 35 * gameSpeedMultiplier;
+            const wEl = document.getElementById(this.id + "-weapon");
+            if(wEl) wEl.style.transform = `rotate(${this.hammerRot}deg)`;
+            if(Math.abs(this.x - target.x) < 90 && Math.abs(this.y - target.y) < 70) {
+                this.hit(target, 4, 2.5);
+            }
+            if(this.buffs.hammer <= 0) this.updateWeaponAppearance();
+        }
+
         if(this.type === "gun" || this.type === "magic") {
             const recovery = this.type === "magic" ? 0.5 : 1.2;
             if(this.isReloading) { this.ammo += recovery; if(this.ammo >= 100) { this.ammo = 100; this.isReloading = false; }
@@ -158,7 +181,7 @@ class Fighter {
             const bar = document.getElementById(this.id+"-reload-fill");
             bar.style.width = this.ammo + "%"; bar.style.background = this.type === "magic" ? "#9b59b6" : (this.isReloading ? "#e74c3c" : "#3498db");
         }
-        if(this.buffs.frozen > 0) { this.buffs.frozen--; this.el.style.filter = "hue-rotate(180deg) brightness(1.5) drop-shadow(0 0 5px white)"; this.vx = 0; } 
+        if(this.buffs.frozen > 0) { this.buffs.frozen--; this.el.style.filter = "cyan(1) brightness(1.8) drop-shadow(0 0 5px white)"; this.vx = 0; } 
         else if(this.buffs.shield > 0) { this.buffs.shield--; this.el.style.boxShadow = "0 0 15px #9b59b6"; this.el.style.filter = ""; } 
         else { this.el.style.boxShadow = "none"; this.el.style.filter = ""; }
         
@@ -184,9 +207,13 @@ class Fighter {
     out() { this.stock--; if(this.stock <= 0) endGame(this.id==="p1"?"P2":"P1"); else { showEffect("K.O."); this.reset(false); } }
     attack(target) {
         if(this.isAtk || this.isGrabbingLedge || this.isReloading || this.buffs.frozen > 0) return;
-        if(this.holding === "bomb") { this.throwBomb(); return; }
-        if(this.holding === "gravity") { this.placeGravity(); return; }
-        if(this.holding === "ice") { this.throwIce(); return; }
+        if(this.holding) {
+            if(this.holding === "bomb") this.throwBomb();
+            else if(this.holding === "gravity") this.spawnActiveItem("gravity_active", "🌀", "#34495e", 200, 350);
+            else if(this.holding === "ice") this.throwIce();
+            this.holding = null;
+            return;
+        }
         this.isAtk = true;
         if(this.type === "gun") {
             if(this.ammo <= 10) { this.isReloading = true; this.isAtk = false; return; }
@@ -219,9 +246,9 @@ class Fighter {
             showEffect("CYCLONE SLASH!!");
             let rot = 0; const cyclone = setInterval(() => {
                 rot += 45; const wEl = document.getElementById(this.id + "-weapon");
-                if(wEl) wEl.style.transform = `rotate(${rot}deg) scale(1.6)`;
+                if(wEl && this.buffs.hammer <= 0) wEl.style.transform = `rotate(${rot}deg) scale(1.6)`;
                 if(Math.sqrt((this.x - target.x)**2 + (this.y - target.y)**2) < 170) this.hit(target, 12, 1.8);
-                if(rot >= 1080) { clearInterval(cyclone); this.isAtk = false; this.isUsingSuper = false; this.el.style.filter = ""; if(wEl) wEl.style.transform = "rotate(20deg) scale(1)"; }
+                if(rot >= 1080) { clearInterval(cyclone); this.isAtk = false; this.isUsingSuper = false; this.el.style.filter = ""; if(wEl && this.buffs.hammer <= 0) wEl.style.transform = "rotate(20deg) scale(1)"; }
             }, 30 / gameSpeedMultiplier);
         } else if(this.type === "gun") {
             showEffect("GENOCIDE BARRAGE!!"); this.isInvincible = true;
@@ -248,20 +275,12 @@ class Fighter {
     hit(target, pwr, kbM) { 
         if(target.isInvincible || target.buffs.shield > 0) return; 
         target.isGrabbingLedge = false; target.damage += pwr;
-        
-        // 凍結解除ロジック: 凍結中に攻撃をくらったら解除
-        if(target.buffs.frozen > 0) target.buffs.frozen = 0;
-
-        // SP増加量のバランス調整 (2.2 -> 0.7)
-        if(!this.isUsingSuper) this.sp = Math.min(100, this.sp + pwr * 0.7);
-        
+        if(!this.isUsingSuper) this.sp = Math.min(100, this.sp + pwr * 2.2);
         const kb = ((target.damage / 7) + 8) * kbM; target.vx = (target.x < this.x ? -1 : 1) * kb; target.vy = kb * 0.3 + 5; 
     }
-    throwBomb() { this.holding = null; this.spawnActiveItem("bomb_active", "💣", "#333", 220, 50); }
-    placeGravity() { this.holding = null; this.spawnActiveItem("gravity_active", "🌀", "#34495e", 220, 300); }
+    throwBomb() { this.spawnActiveItem("bomb_active", "💣", "#333", 220, 50); }
     throwIce() {
-        this.holding = null;
-        const i = { x: this.x + (this.dir * 15), y: this.y + 20, vx: this.dir * 16, vy: 1, type: "ice_active", el: document.createElement("div") }; 
+        const i = { x: this.x + (this.dir * 15), y: this.y + 20, vx: this.dir * 16, vy: 1, type: "ice_active", el: document.createElement("div") };
         i.el.className = "item"; i.el.style.background = "#00d2ff"; i.el.style.borderRadius = "50%"; i.el.innerText = "❄️";
         i.el.style.boxShadow = "0 0 10px #00d2ff";
         document.getElementById("game-stage").appendChild(i.el); items.push(i);
@@ -271,7 +290,7 @@ class Fighter {
         it.el.className = "item"; it.el.style.background = color; it.el.style.borderRadius = "50%"; it.el.innerText = icon;
         it.hintEl.className = type === "gravity_active" ? "gravity-range" : "explosion-hint";
         it.hintEl.style.width = (range*2)+"px"; it.hintEl.style.height = (range*2)+"px";
-        if(type === "bomb_active") it.hintEl.style.display = "block";
+        if(type === "bomb_active" || type === "gravity_active") it.hintEl.style.display = "block";
         document.getElementById("game-stage").appendChild(it.el); document.getElementById("game-stage").appendChild(it.hintEl); items.push(it);
     }
 }
@@ -286,7 +305,7 @@ function startGame(m) {
     document.getElementById("menu").style.display = "none";
     document.getElementById("game-container").style.display = "block";
     p1.reset(true); p2.reset(true); isRunning = true; 
-    const scheduleNextItem = () => { itemTimer = setTimeout(() => { if(isRunning) { spawnCrate(); scheduleNextItem(); } }, (6000 + Math.random() * 5000) / gameSpeedMultiplier); };
+    const scheduleNextItem = () => { itemTimer = setTimeout(() => { if(isRunning) { spawnCrate(); scheduleNextItem(); } }, (4000 + Math.random() * 3000) / gameSpeedMultiplier); };
     scheduleNextItem(); loop();
 }
 
@@ -299,17 +318,24 @@ function updatePhysics() {
         if(keys[p1.controls.right]) { p1.vx += p1.accel * internalSpeed; p1.dir = 1; }
     }
     
-    // AI LOGIC - 微調整 (反応遅延を追加)
+    // AI LOGIC 改良
     if(mode === "com") {
         const lvl = document.getElementById("com-lvl").value;
-        const decisionChance = lvl === "max" ? 0.95 : (lvl === "3" ? 0.75 : 0.35); // わずかな隙
+        const decisionChance = lvl === "max" ? 0.99 : (lvl === "3" ? 0.8 : 0.4);
         if (p2.buffs.frozen <= 0 && Math.random() < decisionChance) {
             const isOffStage = p2.x < 150 || p2.x > 950 || p2.y < 120;
-            if (p2.isGrabbingLedge) { p2.jump(); } 
+            
+            if (p2.isGrabbingLedge) {
+                // 崖つかみ自滅防止ロジック: すぐにジャンプして内側へ
+                setTimeout(() => {
+                    p2.jump();
+                    p2.vx = (p2.x < 550) ? 10 : -10;
+                }, 100);
+            } 
             else if (isOffStage) {
-                let targetX = (p2.x < 550) ? 200 : 800;
-                if (p2.x < targetX) { p2.vx += p2.accel * 1.2; p2.dir = 1; } else { p2.vx -= p2.accel * 1.2; p2.dir = -1; }
-                if (p2.vy < 0) p2.jump();
+                let targetX = (p2.x < 550) ? 300 : 800;
+                if (p2.x < targetX) { p2.vx += p2.accel * 1.5; p2.dir = 1; } else { p2.vx -= p2.accel * 1.5; p2.dir = -1; }
+                if (p2.vy < 0 || p2.y < 150) p2.jump();
             } else {
                 const dist = Math.abs(p1.x - p2.x);
                 if (p2.type === "gun" || p2.type === "magic") {
@@ -319,6 +345,7 @@ function updatePhysics() {
                     if (p2.x < p1.x) { p2.vx += p2.accel; p2.dir = 1; } else { p2.vx -= p2.accel; p2.dir = -1; }
                 }
                 if (p1.y > p2.y + 60) p2.jump();
+                
                 const range = (p2.type === "gun" || p2.type === "magic" || p2.holding) ? 600 : 130;
                 if (dist < range && Math.abs(p1.y - p2.y) < 100) {
                     p2.dir = (p2.x < p1.x) ? 1 : -1;
@@ -334,13 +361,17 @@ function updatePhysics() {
     
     p1.update(); p2.update();
     
+    // Items and Projectiles Logic
     items.forEach((it, i) => {
-        if(["heal", "shield", "bomb_item", "gravity_trap", "ice_item"].includes(it.type)) {
+        if(["heal", "shield", "bomb_item", "gravity_trap", "ice_item", "hammer_item"].includes(it.type)) {
             [p1, p2].forEach(p => {
                 if(Math.abs(p.x - it.x) < 40 && Math.abs(p.y - it.y) < 40) {
                     if(it.type === "heal") { p.damage = Math.max(0, p.damage - 45); showEffect("HEALED!"); }
                     else if(it.type === "shield") { p.buffs.shield = 400; showEffect("SHIELD ON!"); }
-                    else if(!p.holding) { p.holding = it.type === "bomb_item" ? "bomb" : (it.type === "gravity_trap" ? "gravity" : "ice"); }
+                    else if(it.type === "hammer_item") { p.buffs.hammer = 400; p.updateWeaponAppearance(); showEffect("HAMMER TIME!"); }
+                    else if(!p.holding) { 
+                        p.holding = it.type === "bomb_item" ? "bomb" : (it.type === "gravity_trap" ? "gravity" : "ice"); 
+                    }
                     it.el.remove(); items.splice(i, 1);
                 }
             });
@@ -350,7 +381,10 @@ function updatePhysics() {
             [p1, p2].forEach(p => { 
                 let dx = it.x - p.x; let dy = it.y - p.y;
                 let d = Math.sqrt(dx*dx + dy*dy); 
-                if(d < it.range) { p.vx += (dx / d) * 0.8; p.vy += (dy / d) * 0.8; } 
+                if(d < it.range) { 
+                    p.vx += (dx / d) * 1.0; 
+                    p.vy += (dy / d) * 1.0; 
+                } 
             });
             if(it.timer <= 0) { it.el.remove(); it.hintEl.remove(); items.splice(i, 1); }
         } else if(it.type === "bomb_active") {
@@ -360,9 +394,10 @@ function updatePhysics() {
                 showEffect("BOOM!"); it.el.remove(); it.hintEl.remove(); items.splice(i, 1);
             }
         } else if(it.type === "ice_active") {
-            [p1, p2].forEach(p => { if(Math.abs(p.x - it.x) < 50 && Math.abs(p.y - (it.y + 20)) < 50) { if(p.buffs.shield <= 0 && !p.isInvincible) { p.buffs.frozen = 140; showEffect("FROZEN!"); } it.el.remove(); items.splice(i, 1); } });
-            if(it.x < -100 || it.x > 1200) { if(it.el.parentNode) it.el.remove(); items.splice(i, 1); }
+            [p1, p2].forEach(p => { if(Math.abs(p.x - it.x) < 50 && Math.abs(p.y - (it.y + 20)) < 50) { if(p.buffs.shield <= 0 && !p.isInvincible) { p.buffs.frozen = 220; showEffect("FROZEN!"); } it.el.remove(); items.splice(i, 1); } });
+            if(it.x < -100 || it.x > 1200) { if(it.el && it.el.parentNode) it.el.remove(); items.splice(i, 1); }
         }
+        
         if(it.type && !["gravity_active", "ice_active"].includes(it.type)) {
             it.vy -= 0.5 * internalSpeed; it.x += (it.vx || 0); it.y += it.vy;
             platforms.forEach(pl => { if(it.vy <= 0 && it.x > pl.x-20 && it.x < pl.x+pl.w && it.y <= pl.y && it.y > pl.y-20) { it.y = pl.y; it.vy = 0; it.vx *= 0.8; } });
@@ -374,11 +409,7 @@ function updatePhysics() {
         p.x += p.vx * internalSpeed; p.y += (p.vy || 0) * internalSpeed;
         p.el.style.left = p.x + "px"; p.el.style.bottom = p.y + "px";
         let target = p.owner === p1 ? p2 : p1;
-        if(Math.abs(p.x - target.x) < 40 && Math.abs(p.y - target.y) < 50) { 
-            // 飛び道具のノックバック倍率を下げてハメを防止 (1.4 -> 0.7)
-            p.owner.hit(target, p.pwr, p.isSuper ? 1.4 : 0.7); 
-            p.el.remove(); projectiles.splice(i, 1); 
-        } 
+        if(Math.abs(p.x - target.x) < 40 && Math.abs(p.y - target.y) < 50) { p.owner.hit(target, p.pwr, 1.4); p.el.remove(); projectiles.splice(i, 1); } 
         else if(p.x < -400 || p.x > 1500 || p.y < -100) { p.el.remove(); projectiles.splice(i, 1); }
     });
 }
@@ -397,11 +428,13 @@ function breakCrate(it) {
     const stageEl = document.getElementById("game-stage");
     const rand = Math.random();
     let type, content, color;
-    if (rand < 0.20) { type = "bomb_item"; color = "#555"; content = "💣"; }
-    else if (rand < 0.40) { type = "ice_item"; color = "#00d2ff"; content = "❄️"; }
-    else if (rand < 0.60) { type = "gravity_trap"; color = "#34495e"; content = "🌀"; }
+    if (rand < 0.15) { type = "bomb_item"; color = "#555"; content = "💣"; }
+    else if (rand < 0.30) { type = "ice_item"; color = "#00d2ff"; content = "❄️"; }
+    else if (rand < 0.45) { type = "gravity_trap"; color = "#34495e"; content = "🌀"; }
+    else if (rand < 0.60) { type = "hammer_item"; color = "#f1c40f"; content = "🔨"; }
     else if (rand < 0.80) { type = "heal"; color = "#2ecc71"; content = "♥"; }
     else { type = "shield"; color = "#9b59b6"; content = "🛡️"; }
+    
     const newItem = { x: it.x, y: it.y, vy: 5, type: type, el: document.createElement("div") };
     newItem.el.className = "item"; newItem.el.style.background = color; newItem.el.innerText = content;
     stageEl.appendChild(newItem.el); it.el.remove();
