@@ -35,18 +35,22 @@
         .platform { position: absolute; background: #444; border-bottom: 5px solid #222; border-radius: 4px; z-index: 1; }
         .player { position: absolute; width: 40px; height: 60px; z-index: 10; transition: filter 0.1s, box-shadow 0.2s; border-radius: 10px; }
         
-        .weapon { position: absolute; transform-origin: bottom center; transition: transform 0.1s; }
-        .weapon-sword { width: 7px; height: 50px; background: #ccc; border: 1px solid #333; left: 45px; top: 10px; border-radius: 2px; box-shadow: 0 0 8px rgba(255,255,255,0.6); }
-        .weapon-staff { width: 6px; height: 55px; background: #8e44ad; border: 1px solid #4a235a; left: 45px; top: 5px; border-radius: 3px; }
+        /* 武器の基本設定とアニメーション */
+        .weapon { position: absolute; transform-origin: bottom center; transition: transform 0.1s ease-out; }
+        .weapon-sword { width: 7px; height: 50px; background: #ccc; border: 1px solid #333; left: 45px; top: 10px; border-radius: 2px; box-shadow: 0 0 8px rgba(255,255,255,0.6); transform: rotate(20deg); }
+        .weapon-staff { width: 6px; height: 55px; background: #8e44ad; border: 1px solid #4a235a; left: 45px; top: 5px; border-radius: 3px; transform: rotate(15deg); }
         .staff-gem { position: absolute; top: -8px; left: -4px; width: 14px; height: 14px; background: #9b59b6; border-radius: 50%; box-shadow: 0 0 10px #dfa6ff; }
-        .weapon-glove { width: 15px; height: 15px; background: #ff0000; border: 2px solid #000; border-radius: 50%; left: 35px; top: 35px; }
-        .weapon-gun { width: 25px; height: 12px; background: #333; border: 1px solid #000; left: 35px; top: 30px; border-radius: 2px; }
+        .weapon-glove { width: 18px; height: 18px; background: #ff0000; border: 2px solid #000; border-radius: 50%; left: 35px; top: 35px; transform: translateX(0); }
+        .weapon-gun { width: 25px; height: 12px; background: #333; border: 1px solid #000; left: 35px; top: 30px; border-radius: 2px; transform: rotate(0deg); }
         .weapon-gun::after { content: ""; position: absolute; right: 0; bottom: -8px; width: 8px; height: 10px; background: #333; border: 1px solid #000; }
 
         .weapon-hammer { width: 10px; height: 60px; background: #555; border: 2px solid #000; left: 40px; top: -10px; border-radius: 2px; position: absolute; }
         .hammer-head { position: absolute; top: -15px; left: -20px; width: 50px; height: 30px; background: #333; border: 3px solid #000; border-radius: 5px; }
 
         .projectile { position: absolute; width: 14px; height: 8px; border-radius: 4px; z-index: 15; box-shadow: 0 0 8px #ff0; }
+        /* 魔法弾を大きく設定 */
+        .projectile-magic { width: 28px; height: 28px; border-radius: 50%; box-shadow: 0 0 15px #e67e22; }
+        
         .item { position: absolute; width: 34px; height: 34px; z-index: 5; display: flex; justify-content: center; align-items: center; font-weight: bold; border-radius: 4px; font-size: 20px; }
         .crate { background: #8b4513; border: 2px solid #5d2e0a; color: #ffd700; cursor: default; }
         .explosion-hint { position: absolute; border-radius: 50%; background: rgba(255, 0, 0, 0.3); border: 2px solid rgba(255, 0, 0, 0.8); pointer-events: none; transform: translate(-50%, 50%); z-index: 2; }
@@ -203,6 +207,8 @@ class Fighter {
         document.getElementById(this.id+"-sp").style.width = this.sp + "%";
     }
     out() { this.stock--; if(this.stock <= 0) endGame(this.id==="p1"?"P2":"P1"); else { showEffect("K.O."); this.reset(false); } }
+    
+    // 攻撃モーションの制御
     attack(target) {
         if(this.isAtk || this.isGrabbingLedge || this.isReloading || this.buffs.frozen > 0) return;
         if(this.holding) {
@@ -213,19 +219,43 @@ class Fighter {
             return;
         }
         this.isAtk = true;
+        const wEl = document.getElementById(this.id + "-weapon");
+
         if(this.type === "gun") {
             if(this.ammo <= 10) { this.isReloading = true; this.isAtk = false; return; }
-            this.ammo -= 25; for(let i=0; i<3; i++) setTimeout(() => { if(isRunning) this.fireProjectile(this.meleeP, 18); }, i * (100 / gameSpeedMultiplier)); // 弾速を22から18に低下
+            this.ammo -= 25; 
+            // 銃の反動アニメ
+            if(wEl) wEl.style.transform = "translateX(-10px) rotate(-10deg)";
+            for(let i=0; i<3; i++) setTimeout(() => { if(isRunning) this.fireProjectile(this.meleeP, 18, false, "#ffff00", "normal"); }, i * (100 / gameSpeedMultiplier));
+            setTimeout(() => { if(wEl) wEl.style.transform = "translateX(0) rotate(0deg)"; }, 200);
+
         } else if(this.type === "magic") {
             if(this.ammo <= 20) { this.isReloading = true; this.isAtk = false; return; }
-            this.ammo -= 30; this.fireProjectile(this.meleeP, 18, false, "orange"); // 弾速を15から18に上昇
-        } else {
-            const reach = this.type === "sword" ? 125 : 75;
-            if(Math.abs(this.x - target.x) < reach && Math.abs(this.y - target.y) < 70) this.hit(target, this.meleeP, this.type === "fighter" ? 1.6 : 1.4);
+            this.ammo -= 30; 
+            // 杖を掲げるアニメ
+            if(wEl) wEl.style.transform = "rotate(-30deg) translateY(-10px)";
+            this.fireProjectile(this.meleeP, 18, false, "orange", "magic");
+            setTimeout(() => { if(wEl) wEl.style.transform = "rotate(15deg) translateY(0)"; }, 300);
+
+        } else if(this.type === "sword") {
+            // 剣を振るアニメ
+            if(wEl) wEl.style.transform = "rotate(150deg)";
+            const reach = 125;
+            if(Math.abs(this.x - target.x) < reach && Math.abs(this.y - target.y) < 70) this.hit(target, this.meleeP, 1.4);
+            setTimeout(() => { if(wEl) wEl.style.transform = "rotate(20deg)"; }, 200);
+
+        } else if(this.type === "fighter") {
+            // パンチアニメ
+            if(wEl) wEl.style.transform = "translateX(25px)";
+            const reach = 75;
+            if(Math.abs(this.x - target.x) < reach && Math.abs(this.y - target.y) < 70) this.hit(target, this.meleeP, 1.6);
+            setTimeout(() => { if(wEl) wEl.style.transform = "translateX(0)"; }, 150);
         }
+
         items.forEach(it => { if(it.type === "crate" && Math.abs(this.x - it.x) < 80 && Math.abs(this.y - it.y) < 60) breakCrate(it); });
         setTimeout(()=>this.isAtk=false, this.cd / gameSpeedMultiplier);
     }
+
     trySuper(target) { if(this.sp >= 100 && !this.isAtk && !this.isGrabbingLedge && this.buffs.frozen <= 0) this.useSuper(target); }
     useSuper(target) {
         this.sp = 0; this.isAtk = true; this.isUsingSuper = true;
@@ -258,18 +288,21 @@ class Fighter {
                 setTimeout(() => {
                     const mX = target.x + (Math.random() * 400 - 200);
                     const met = { x: mX, y: 700, vx: (target.x - mX) * 0.05, vy: -15, owner: this, pwr: 20, isSuper: true, el: document.createElement("div") };
-                    met.el.className = "projectile"; met.el.style.background = "red"; met.el.style.width = "40px"; met.el.style.height = "40px"; met.el.style.borderRadius = "50%"; met.el.style.boxShadow = "0 0 20px orange";
+                    met.el.className = "projectile projectile-magic"; met.el.style.background = "red"; met.el.style.boxShadow = "0 0 20px orange";
                     document.getElementById("game-stage").appendChild(met.el); projectiles.push(met);
                 }, i * 150 / gameSpeedMultiplier);
             }
             setTimeout(() => { this.isAtk = false; this.isUsingSuper = false; this.el.style.filter = ""; this.ammo = 100; }, 1200 / gameSpeedMultiplier);
         }
     }
-    fireProjectile(pwr, speed, isSuper = false, color = "#ffff00") {
+
+    fireProjectile(pwr, speed, isSuper = false, color = "#ffff00", pType = "normal") {
         const p = { x: this.x + (this.dir*30), y: this.y + 25, vx: this.dir*speed, owner: this, pwr, isSuper, el: document.createElement("div") };
-        p.el.className = "projectile"; p.el.style.background = isSuper ? "lime" : color;
+        p.el.className = "projectile" + (pType === "magic" ? " projectile-magic" : "");
+        p.el.style.background = isSuper ? "lime" : color;
         document.getElementById("game-stage").appendChild(p.el); projectiles.push(p);
     }
+
     hit(target, pwr, kbM) { 
         if(target.isInvincible || target.buffs.shield > 0) return; 
         target.isGrabbingLedge = false; target.damage += pwr;
