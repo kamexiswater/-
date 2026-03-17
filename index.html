@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Browser Smash - 5 Items Enhanced Edition</title>
+    <title>Browser Smash - Balanced Edition</title>
     <style>
         body { margin: 0; background: #1a1a1a; color: white; font-family: sans-serif; text-align: center; overflow: hidden; }
         #menu, #result-screen {
@@ -53,7 +53,7 @@
 </head>
 <body>
     <div id="menu">
-        <h1 style="color: #4cd137;">BROWSER SMASH <span style="font-size:12px; color:gold;">ENHANCED ITEMS</span></h1>
+        <h1 style="color: #4cd137;">BROWSER SMASH <span style="font-size:12px; color:gold;">BALANCED</span></h1>
         <div class="config-grid">
             <strong>【P1設定】</strong><strong>【P2/COM設定】</strong>
             <div>タイプ: <select id="type1"><option value="gun">銃(Range)</option><option value="fighter">格闘(Speed)</option><option value="sword" selected>剣(Balance)</option><option value="magic">魔法(Magic)</option></select></div>
@@ -130,6 +130,10 @@ class Fighter {
             this.el = document.createElement("div"); this.el.id = this.id; this.el.className = `player`;
             document.getElementById("game-stage").appendChild(this.el);
         }
+        this.updateWeaponView();
+        document.getElementById(this.id + "-reload-ui").style.display = (this.type === "gun" || this.type === "magic") ? "block" : "none";
+    }
+    updateWeaponView() {
         let weaponHtml = "";
         if(this.type === "sword") weaponHtml = `<div class="weapon weapon-sword" id="${this.id}-weapon"></div>`;
         else if(this.type === "magic") weaponHtml = `<div class="weapon weapon-staff" id="${this.id}-weapon"><div class="staff-gem"></div></div>`;
@@ -139,7 +143,6 @@ class Fighter {
             <div style="width:20px;height:20px;background:#ffd1a4;border-radius:50%;margin:0 auto;border:2px solid #000;"></div>
             <div style="width:22px;height:30px;background:${this.color};margin:-2px auto;border:2px solid #000;border-radius:4px;"></div>
             ${weaponHtml}`;
-        document.getElementById(this.id + "-reload-ui").style.display = (this.type === "gun" || this.type === "magic") ? "block" : "none";
     }
     jump() { 
         if(this.buffs.frozen > 0) return;
@@ -155,7 +158,7 @@ class Fighter {
             const bar = document.getElementById(this.id+"-reload-fill");
             bar.style.width = this.ammo + "%"; bar.style.background = this.type === "magic" ? "#9b59b6" : (this.isReloading ? "#e74c3c" : "#3498db");
         }
-        if(this.buffs.frozen > 0) { this.buffs.frozen--; this.el.style.filter = "cyan(1) brightness(1.8) drop-shadow(0 0 5px white)"; this.vx = 0; } 
+        if(this.buffs.frozen > 0) { this.buffs.frozen--; this.el.style.filter = "hue-rotate(180deg) brightness(1.5) drop-shadow(0 0 5px white)"; this.vx = 0; } 
         else if(this.buffs.shield > 0) { this.buffs.shield--; this.el.style.boxShadow = "0 0 15px #9b59b6"; this.el.style.filter = ""; } 
         else { this.el.style.boxShadow = "none"; this.el.style.filter = ""; }
         
@@ -245,15 +248,20 @@ class Fighter {
     hit(target, pwr, kbM) { 
         if(target.isInvincible || target.buffs.shield > 0) return; 
         target.isGrabbingLedge = false; target.damage += pwr;
-        if(!this.isUsingSuper) this.sp = Math.min(100, this.sp + pwr * 2.2);
+        
+        // 凍結解除ロジック: 凍結中に攻撃をくらったら解除
+        if(target.buffs.frozen > 0) target.buffs.frozen = 0;
+
+        // SP増加量のバランス調整 (2.2 -> 0.7)
+        if(!this.isUsingSuper) this.sp = Math.min(100, this.sp + pwr * 0.7);
+        
         const kb = ((target.damage / 7) + 8) * kbM; target.vx = (target.x < this.x ? -1 : 1) * kb; target.vy = kb * 0.3 + 5; 
     }
-    // アイテム発動ロジックの強化
-    throwBomb() { this.holding = null; this.spawnActiveItem("bomb_active", "💣", "#333", 220, 50); } // 起爆時間短縮(100->50), 範囲微増
-    placeGravity() { this.holding = null; this.spawnActiveItem("gravity_active", "🌀", "#34495e", 200, 350); } // 範囲拡大, 持続微増
+    throwBomb() { this.holding = null; this.spawnActiveItem("bomb_active", "💣", "#333", 220, 50); }
+    placeGravity() { this.holding = null; this.spawnActiveItem("gravity_active", "🌀", "#34495e", 220, 300); }
     throwIce() {
         this.holding = null;
-        const i = { x: this.x + (this.dir * 15), y: this.y + 20, vx: this.dir * 16, vy: 1, type: "ice_active", el: document.createElement("div") }; // 弾速大幅強化
+        const i = { x: this.x + (this.dir * 15), y: this.y + 20, vx: this.dir * 16, vy: 1, type: "ice_active", el: document.createElement("div") }; 
         i.el.className = "item"; i.el.style.background = "#00d2ff"; i.el.style.borderRadius = "50%"; i.el.innerText = "❄️";
         i.el.style.boxShadow = "0 0 10px #00d2ff";
         document.getElementById("game-stage").appendChild(i.el); items.push(i);
@@ -263,7 +271,7 @@ class Fighter {
         it.el.className = "item"; it.el.style.background = color; it.el.style.borderRadius = "50%"; it.el.innerText = icon;
         it.hintEl.className = type === "gravity_active" ? "gravity-range" : "explosion-hint";
         it.hintEl.style.width = (range*2)+"px"; it.hintEl.style.height = (range*2)+"px";
-        if(type === "bomb_active") it.hintEl.style.display = "block"; // 予告範囲を最初から表示
+        if(type === "bomb_active") it.hintEl.style.display = "block";
         document.getElementById("game-stage").appendChild(it.el); document.getElementById("game-stage").appendChild(it.hintEl); items.push(it);
     }
 }
@@ -278,7 +286,7 @@ function startGame(m) {
     document.getElementById("menu").style.display = "none";
     document.getElementById("game-container").style.display = "block";
     p1.reset(true); p2.reset(true); isRunning = true; 
-    const scheduleNextItem = () => { itemTimer = setTimeout(() => { if(isRunning) { spawnCrate(); scheduleNextItem(); } }, (5000 + Math.random() * 4000) / gameSpeedMultiplier); };
+    const scheduleNextItem = () => { itemTimer = setTimeout(() => { if(isRunning) { spawnCrate(); scheduleNextItem(); } }, (6000 + Math.random() * 5000) / gameSpeedMultiplier); };
     scheduleNextItem(); loop();
 }
 
@@ -291,10 +299,10 @@ function updatePhysics() {
         if(keys[p1.controls.right]) { p1.vx += p1.accel * internalSpeed; p1.dir = 1; }
     }
     
-    // AI LOGIC
+    // AI LOGIC - 微調整 (反応遅延を追加)
     if(mode === "com") {
         const lvl = document.getElementById("com-lvl").value;
-        const decisionChance = lvl === "max" ? 0.99 : (lvl === "3" ? 0.8 : 0.4);
+        const decisionChance = lvl === "max" ? 0.95 : (lvl === "3" ? 0.75 : 0.35); // わずかな隙
         if (p2.buffs.frozen <= 0 && Math.random() < decisionChance) {
             const isOffStage = p2.x < 150 || p2.x > 950 || p2.y < 120;
             if (p2.isGrabbingLedge) { p2.jump(); } 
@@ -304,7 +312,6 @@ function updatePhysics() {
                 if (p2.vy < 0) p2.jump();
             } else {
                 const dist = Math.abs(p1.x - p2.x);
-                // 間合い管理
                 if (p2.type === "gun" || p2.type === "magic") {
                     if (dist < 300) { if (p2.x < p1.x) p2.vx -= p2.accel; else p2.vx += p2.accel; }
                     else if (dist > 500) { if (p2.x < p1.x) p2.vx += p2.accel; else p2.vx -= p2.accel; }
@@ -312,13 +319,11 @@ function updatePhysics() {
                     if (p2.x < p1.x) { p2.vx += p2.accel; p2.dir = 1; } else { p2.vx -= p2.accel; p2.dir = -1; }
                 }
                 if (p1.y > p2.y + 60) p2.jump();
-                // 攻撃・アイテム使用判断
                 const range = (p2.type === "gun" || p2.type === "magic" || p2.holding) ? 600 : 130;
                 if (dist < range && Math.abs(p1.y - p2.y) < 100) {
                     p2.dir = (p2.x < p1.x) ? 1 : -1;
                     if (p2.sp >= 100) p2.trySuper(p1); else p2.attack(p1);
                 }
-                // アイテム回収
                 items.forEach(it => { if(it.type === "crate" && Math.abs(it.x - p2.x) < 250) { if(p2.x < it.x) p2.vx += p2.accel; else p2.vx -= p2.accel; p2.attack(p1); } });
             }
         }
@@ -329,7 +334,6 @@ function updatePhysics() {
     
     p1.update(); p2.update();
     
-    // Items and Projectiles Logic
     items.forEach((it, i) => {
         if(["heal", "shield", "bomb_item", "gravity_trap", "ice_item"].includes(it.type)) {
             [p1, p2].forEach(p => {
@@ -346,10 +350,7 @@ function updatePhysics() {
             [p1, p2].forEach(p => { 
                 let dx = it.x - p.x; let dy = it.y - p.y;
                 let d = Math.sqrt(dx*dx + dy*dy); 
-                if(d < it.range) { // 吸引力の強化
-                    p.vx += (dx / d) * 0.8; 
-                    p.vy += (dy / d) * 0.8; 
-                } 
+                if(d < it.range) { p.vx += (dx / d) * 0.8; p.vy += (dy / d) * 0.8; } 
             });
             if(it.timer <= 0) { it.el.remove(); it.hintEl.remove(); items.splice(i, 1); }
         } else if(it.type === "bomb_active") {
@@ -359,7 +360,7 @@ function updatePhysics() {
                 showEffect("BOOM!"); it.el.remove(); it.hintEl.remove(); items.splice(i, 1);
             }
         } else if(it.type === "ice_active") {
-            [p1, p2].forEach(p => { if(Math.abs(p.x - it.x) < 50 && Math.abs(p.y - (it.y + 20)) < 50) { if(p.buffs.shield <= 0 && !p.isInvincible) { p.buffs.frozen = 220; showEffect("FROZEN!"); } it.el.remove(); items.splice(i, 1); } });
+            [p1, p2].forEach(p => { if(Math.abs(p.x - it.x) < 50 && Math.abs(p.y - (it.y + 20)) < 50) { if(p.buffs.shield <= 0 && !p.isInvincible) { p.buffs.frozen = 140; showEffect("FROZEN!"); } it.el.remove(); items.splice(i, 1); } });
             if(it.x < -100 || it.x > 1200) { if(it.el.parentNode) it.el.remove(); items.splice(i, 1); }
         }
         if(it.type && !["gravity_active", "ice_active"].includes(it.type)) {
@@ -373,7 +374,11 @@ function updatePhysics() {
         p.x += p.vx * internalSpeed; p.y += (p.vy || 0) * internalSpeed;
         p.el.style.left = p.x + "px"; p.el.style.bottom = p.y + "px";
         let target = p.owner === p1 ? p2 : p1;
-        if(Math.abs(p.x - target.x) < 40 && Math.abs(p.y - target.y) < 50) { p.owner.hit(target, p.pwr, 1.4); p.el.remove(); projectiles.splice(i, 1); } 
+        if(Math.abs(p.x - target.x) < 40 && Math.abs(p.y - target.y) < 50) { 
+            // 飛び道具のノックバック倍率を下げてハメを防止 (1.4 -> 0.7)
+            p.owner.hit(target, p.pwr, p.isSuper ? 1.4 : 0.7); 
+            p.el.remove(); projectiles.splice(i, 1); 
+        } 
         else if(p.x < -400 || p.x > 1500 || p.y < -100) { p.el.remove(); projectiles.splice(i, 1); }
     });
 }
