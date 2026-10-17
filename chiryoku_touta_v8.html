@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>知力淘汰 Ver.8 | 盤面選択・先攻ルーレット</title>
+<style>
+:root{--bg:#10131b;--panel:#1a2030;--panel2:#222b3e;--text:#f3f5fb;--muted:#aab4c8;--gold:#f4c95d;--blue:#55c8ff;--red:#ff737d;--line:#8290a8;--soft:#2b3549}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:radial-gradient(circle at top,#202a40 0,#10131b 58%)}
+header{text-align:center;padding:23px 12px 10px}h1{font-size:clamp(2rem,5vw,3rem);letter-spacing:.12em;margin:0}header p{color:var(--muted);margin:6px 0 0}
+main{width:min(1100px,100%);margin:auto;padding:14px;display:grid;grid-template-columns:minmax(290px,1fr) minmax(270px,350px);gap:16px}.panel{background:linear-gradient(160deg,var(--panel),#151a26);border:1px solid #303b51;border-radius:18px;padding:16px;box-shadow:0 14px 35px #0003}
+.status{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}.pill{background:var(--panel2);border:1px solid #344158;border-radius:99px;padding:7px 11px;font-size:.9rem;color:var(--muted)}.pill strong{color:var(--text)}#turn.o{color:var(--blue);border-color:var(--blue)}#turn.x{color:var(--red);border-color:var(--red)}
+.frame{position:relative;width:min(100%,650px);margin:12px auto 4px;padding:31px;aspect-ratio:1/1.06;display:flex;align-items:center;justify-content:center}.board{width:100%;aspect-ratio:1;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));grid-template-rows:repeat(5,minmax(0,1fr));border:0;position:relative;background:#151c29;box-shadow:0 10px 24px #0003}
+.cell{min-width:0;padding:0;border-radius:0;border:1px solid #65718a;background:#171e2c;color:var(--text);font-size:clamp(1.7rem,5vw,3rem);font-weight:850;display:flex;justify-content:center;align-items:center;position:relative;transition:background .15s,opacity .15s}
+.cell.open-top{border-top-color:transparent}.cell.open-bottom{border-bottom-color:transparent}.cell.open-left{border-left-color:transparent}.cell.open-right{border-right-color:transparent}.cell.available{background:#27374c;cursor:pointer}.cell.available:hover{background:#354b65}.cell.locked{background:#111722;color:#556176;cursor:not-allowed;opacity:.7}.cell.o{color:var(--blue);text-shadow:0 0 16px #55c8ff44}.cell.x{color:var(--red);text-shadow:0 0 16px #ff737d44}.cell.scored{background:#3a382a;box-shadow:inset 0 0 0 2px #f4c95d9c}.cell.center-start:not(.o):not(.x){outline:3px solid var(--gold);outline-offset:-5px}
+.edge{position:absolute;z-index:5;border:2px dashed #6c7890;background:#1c2536;color:#c4cede;border-radius:9px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:.8rem;font-weight:700;padding:5px;transition:.15s;touch-action:manipulation}
+.edge.top,.edge.bottom{left:31px;width:calc(100% - 62px);height:27px}.edge.top{top:0}.edge.bottom{bottom:0}.edge.left,.edge.right{top:31px;height:calc(100% - 62px);width:27px;writing-mode:vertical-rl}.edge.left{left:0}.edge.right{right:0}
+.edge.drawn{border-style:solid;border-color:var(--gold);background:#403923;color:#ffe9a3;box-shadow:0 0 14px #f4c95d22}.edge.can-draw:not(.drawn){cursor:pointer;border-color:var(--gold);color:#ffe9a3;background:#332f23}.edge.can-draw:not(.drawn):hover{background:#4c432a;transform:scale(1.03)}.edge:disabled{cursor:not-allowed;opacity:.63}
+.note{text-align:center;color:var(--muted);font-size:.86rem;line-height:1.55;margin:8px 0 0}.mode-label{text-align:center;font-size:.93rem;margin:8px 0;color:var(--gold)}
+.side{display:flex;flex-direction:column;gap:14px}.side h2{font-size:1.08rem;margin:0 0 12px}.scores{display:grid;grid-template-columns:1fr 1fr;gap:10px}.scorecard{padding:13px;border-radius:13px;background:var(--panel2);border:1px solid #344158}.scorecard.o .sym{color:var(--blue)}.scorecard.x .sym{color:var(--red)}.sym{font-size:1.6rem;font-weight:900}.big{font-size:2rem;font-weight:850;margin-top:4px;line-height:1.2}.small{font-size:.84rem;color:var(--muted)}#message{background:#121824;border:1px solid #303b51;border-radius:12px;padding:12px;line-height:1.55;min-height:74px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}button{font:inherit;cursor:pointer;border:1px solid #43516a;border-radius:10px;padding:10px 12px;background:#29354a;color:var(--text)}button:hover:not(:disabled){filter:brightness(1.12)}button:disabled{opacity:.42;cursor:not-allowed}.primary{background:var(--gold);color:#211e14;border-color:var(--gold);font-weight:800}.actions button{flex:1}#log{max-height:170px;overflow:auto;padding-left:21px;margin:0;color:var(--muted);font-size:.88rem}#log li{margin:5px 0}.rules{font-size:.88rem;color:var(--muted);line-height:1.65;margin:0;padding-left:20px}.rules strong{color:var(--text)}.setupbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:10px 0 12px;padding:12px;border-radius:13px;background:#121824;border:1px solid #303b51}
+.setupbar label{font-size:.9rem;color:var(--muted);display:flex;align-items:center;gap:8px}.setupbar select{font:inherit;color:var(--text);background:#29354a;border:1px solid #43516a;border-radius:9px;padding:9px 10px}.roulette{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.wheel{width:48px;height:48px;flex:none;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--blue) 0 50%,var(--red) 50% 100%);border:3px solid #e8edf7;color:white;font-size:1rem;font-weight:900;text-shadow:0 1px 3px #000;box-shadow:0 0 0 3px #303b51}.wheel.spinning{animation:spin-wheel .16s linear infinite}@keyframes spin-wheel{to{transform:rotate(360deg)}}#rouletteResult{font-size:.9rem;color:var(--muted);min-width:115px}footer{text-align:center;color:#738098;font-size:.8rem;padding:0 12px 24px}
+@media(max-width:760px){main{grid-template-columns:1fr;padding:10px}.panel{padding:12px}.frame{padding:29px 27px;aspect-ratio:1/1.12}.edge.top,.edge.bottom{left:27px;width:calc(100% - 54px)}.edge.left,.edge.right{top:29px;height:calc(100% - 58px)}.edge{font-size:.72rem;padding:3px}.cell{font-size:clamp(1.45rem,8vw,2.6rem)}}
+</style>
+</head>
+<body>
+<header><h1>知力淘汰</h1><p>中央の3×3から開始。線はいつでも引けるが、引いたら手番終了。</p></header>
+<main>
+<section class="panel">
+  <div class="status"><span class="pill">試合 <strong id="roundLabel">1 / 2</strong></span><span class="pill" id="turn">手番：○</span><span class="pill">盤面 <strong id="boardSizeLabel">5×5</strong></span></div>
+  <div class="modebar" style="display:flex;gap:8px;margin:8px 0 12px;flex-wrap:wrap">
+    <button id="pvpMode" class="primary" type="button">対人戦</button>
+    <button id="comMode" type="button">COM戦</button>
+    <span class="small" id="modeHint" style="align-self:center">2人で交互に操作します。</span>
+  </div>
+  <div class="setupbar">
+    <label for="boardSizeSelect">盤面サイズ
+      <select id="boardSizeSelect" aria-label="盤面サイズを選択"><option value="5">5×5</option><option value="7">7×7</option><option value="9">9×9</option></select>
+    </label>
+    <div class="roulette">
+      <div id="rouletteWheel" class="wheel" aria-hidden="true">○×</div>
+      <button id="rouletteButton" class="primary" type="button">先攻・後攻ルーレット</button>
+      <span id="rouletteResult" aria-live="polite">現在の先攻：○（抽選前）</span>
+    </div>
+  </div>
+  <p class="small" style="margin:0 2px 8px">盤面サイズの変更やルーレットの再実行をすると、第1試合からやり直します。第2試合は第1試合と反対の記号が先攻です。</p>
+  <div class="frame" id="frame">
+    <button class="edge top" data-side="top" aria-label="上辺に線を引く">上辺を引く</button>
+    <button class="edge right" data-side="right" aria-label="右辺に線を引く">右辺</button>
+    <button class="edge bottom" data-side="bottom" aria-label="下辺に線を引く">下辺を引く</button>
+    <button class="edge left" data-side="left" aria-label="左辺に線を引く">左辺</button>
+    <div class="board" id="board" aria-label="ゲーム盤"></div>
+  </div>
+  <div class="mode-label" id="lineCount">外周の線：0 / 4</div>
+  <p class="note" id="boardNote">記号を置くか、外周の線をいつでも1本引けます。線を引くと手番終了です。</p>
+</section>
+<aside class="side">
+  <section class="panel"><h2>得点状況</h2><div class="scores">
+    <div class="scorecard o"><div class="sym">○</div><div class="small">今試合のペア</div><div class="big" id="oRound">0</div><div class="small">累計 <strong id="oTotal">0</strong></div></div>
+    <div class="scorecard x"><div class="sym">×</div><div class="small">今試合のペア</div><div class="big" id="xRound">0</div><div class="small">累計 <strong id="xTotal">0</strong></div></div>
+  </div><p class="small">縦・横・斜めの3連続1本につき1ペア。重なった並びも別々に数えます。</p></section>
+  <section class="panel"><h2>ゲーム状況</h2><div id="message" role="status" aria-live="polite">○の番です。中央のマスに記号を置いてください。</div><div class="actions"><button class="primary" id="nextRound" hidden>第2試合へ</button><button id="restart">最初から</button></div></section>
+  <section class="panel"><h2>操作ログ</h2><ol id="log"><li>試合1開始。中央からスタート。</li></ol></section>
+  <section class="panel"><h2>ルール早見表</h2><ol class="rules">
+    <li>5×5・7×7・9×9から盤面サイズを選択できます。最初に使えるのは必ず中央の3×3です。</li>
+    <li>○と×が交互に記号を置きます。置いた記号は変更できません。</li>
+    <li>自分のターンには、記号を置く代わりに外周の未完成の辺へいつでも線を引けます。</li>
+    <li><strong>線を1本引いた時点で自分のターンは終了</strong>し、相手のターンになります。</li>
+    <li>外周は上・右・下・左の4方向。それぞれ1回、合計最大4回です。5×5なら各方向1列、7×7なら2列、9×9なら3列ずつ解放されます。</li>
+    <li>マスの四方すべてが線で囲まれた場合だけ、そのマスに記号を置けます。外周の辺を引くと、その線で囲まれたマスが使用可能になります。</li>
+    <li>選択した盤面の全マスが埋まると試合終了。2試合の合計ペア数が多い方の勝ちです。</li>
+  </ol></section>
+</aside>
+</main><footer>知力淘汰 Ver.8 · HTML / CSS / JavaScript 単一ファイル</footer>
+<script>
+(()=>{
+  let SIZE=5;
+  const SIDES=['top','right','bottom','left'];
+  let board,turn,round=1,roundScore,totalScore={O:0,X:0},drawn,finished,moveCount,mode="pvp",thinking=false,comTimer=null;
+  let firstSymbol='O', rouletteSpinning=false, rouletteTimer=null, rouletteCycle=null;
+  const $=id=>document.getElementById(id);
+  const boardEl=$('board'), edgeEls=[...document.querySelectorAll('.edge')];
+  const dirs=[[0,1],[1,0],[1,1],[1,-1]];
+  function resetRound(){
+    if(comTimer!==null){clearTimeout(comTimer);comTimer=null;}
+    board=Array.from({length:SIZE},()=>Array(SIZE).fill(''));
+    // 第2試合は第1試合と逆の記号から開始する。
+    turn=round===1?firstSymbol:(firstSymbol==='O'?'X':'O');roundScore={O:0,X:0};drawn={top:false,right:false,bottom:false,left:false};finished=false;moveCount=0;thinking=false;
+    $('nextRound').hidden=true;render();
+    say(`試合${round}開始。${turn==='O'?'○':'×'}からスタート。中央3×3の空きマスに記号を置くか、外周に線を引いてください。線を引いたら手番終了です。`);
+    log(`試合${round}開始：${turn==='O'?'○':'×'}からスタート。中央の3×3から開始`);
+    scheduleComTurn();
+  }
+  function isHumanTurn(){return mode==='pvp'||turn==='O';}
+  function scheduleComTurn(){
+    if(mode!=='com'||turn!=='X'||finished||thinking||rouletteSpinning)return;
+    thinking=true;render();say('強化COMが相手の次の手を予測しながら探索しています…');
+    comTimer=setTimeout(()=>{
+      comTimer=null;thinking=false;
+      if(finished||mode!=='com'||turn!=='X'){render();return;}
+      const action=chooseComAction();
+      if(action?.type==='place')place(action.r,action.c,true);
+      else if(action?.type==='line')drawSide(action.side,true);
+      else {endRound();render();}
+    },180);
+  }
+  const SIDE_BITS={top:1,right:2,bottom:4,left:8};
+  const AI_SEGMENTS=[];
+  function buildAISegments(){
+    AI_SEGMENTS.length=0;
+    for(let r=0;r<SIZE;r++)for(let c=0;c<SIZE;c++)for(const [dr,dc] of dirs){
+      const rr=r+2*dr,cc=c+2*dc;
+      if(rr>=0&&cc>=0&&rr<SIZE&&cc<SIZE)AI_SEGMENTS.push([r*SIZE+c,(r+dr)*SIZE+(c+dc),rr*SIZE+cc]);
+    }
+  }
+  function coreStart(){return Math.floor(SIZE/2)-1;}
+  function coreEnd(){return coreStart()+3;}
+  function currentMask(){let m=0;for(const side of SIDES)if(drawn[side])m|=SIDE_BITS[side];return m;}
+  function aiOpen(mask,r,c){
+    const rs=coreStart(),re=coreEnd();
+    const rowAllowed=(r>=rs&&r<re)||(r<rs&&(mask&SIDE_BITS.top)!==0)||(r>=re&&(mask&SIDE_BITS.bottom)!==0);
+    const colAllowed=(c>=rs&&c<re)||(c<rs&&(mask&SIDE_BITS.left)!==0)||(c>=re&&(mask&SIDE_BITS.right)!==0);
+    return rowAllowed&&colAllowed;
+  }
+  function aiActions(pos,mask){
+    const actions=[];
+    for(let i=0;i<pos.length;i++)if(!pos[i]){
+      const r=Math.floor(i/SIZE),c=i%SIZE;
+      if(aiOpen(mask,r,c))actions.push({type:'place',r,c,i});
+    }
+    for(const side of SIDES)if(!(mask&SIDE_BITS[side]))actions.push({type:'line',side,bit:SIDE_BITS[side]});
+    return actions;
+  }
+  function aiEval(pos,mask){
+    let value=0,xRuns=0,oRuns=0;
+    const xThreats=new Map(),oThreats=new Map();
+    for(const seg of AI_SEGMENTS){
+      let x=0,o=0,empty=[];
+      for(const i of seg){if(pos[i]==='X')x++;else if(pos[i]==='O')o++;else empty.push(i);}
+      if(x===3){xRuns++;continue;}if(o===3){oRuns++;continue;}
+      const weight=i=>{const r=Math.floor(i/SIZE),c=i%SIZE,rs=coreStart(),re=coreEnd();let missing=0;if(r<rs&&!(mask&SIDE_BITS.top))missing++;if(r>=re&&!(mask&SIDE_BITS.bottom))missing++;if(c<rs&&!(mask&SIDE_BITS.left))missing++;if(c>=re&&!(mask&SIDE_BITS.right))missing++;return missing===0?1:missing===1?.42:missing===2?.16:.06;};
+      if(o===0&&x===2&&empty.length===1){xThreats.set(empty[0],(xThreats.get(empty[0])||0)+weight(empty[0]));}
+      else if(x===0&&o===2&&empty.length===1){oThreats.set(empty[0],(oThreats.get(empty[0])||0)+weight(empty[0]));}
+      else if(o===0&&x===1&&empty.length===2)value+=1.5*(weight(empty[0])+weight(empty[1]));
+      else if(x===0&&o===1&&empty.length===2)value-=1.5*(weight(empty[0])+weight(empty[1]));
+    }
+    value+=(xRuns-oRuns)*1600;
+    for(const n of xThreats.values())value+=(n>=1.7?115:38)*Math.min(n,2.5);
+    for(const n of oThreats.values())value-=(n>=1.7?115:38)*Math.min(n,2.5);
+    // Slightly value available spaces, but scoring lines remains the main objective.
+    const center=Math.floor(SIZE/2);for(let i=0;i<pos.length;i++)if(!pos[i]){const r=Math.floor(i/SIZE),c=i%SIZE;if(aiOpen(mask,r,c))value+=(4-Math.abs(center-r)-Math.abs(center-c))*.1;}
+    return value;
+  }
+  function aiKey(pos,mask,side){return pos.map(v=>v||'.').join('')+'|'+mask+'|'+side;}
+  function aiOrder(pos,mask,side,actions){
+    const scored=actions.map(a=>{
+      let m=mask;if(a.type==='place')pos[a.i]=side;else m|=a.bit;
+      let score=aiEval(pos,m);
+      if(a.type==='place')pos[a.i]='';
+      else{
+        let opened=0;for(let i=0;i<SIZE*SIZE;i++){const r=Math.floor(i/SIZE),c=i%SIZE;if(!pos[i]&&!aiOpen(mask,r,c)&&aiOpen(m,r,c))opened++;}
+        score+=(side==='X'?1:-1)*opened*.3;
+      }
+      return {a,score};
+    });
+    scored.sort((a,b)=>side==='X'?b.score-a.score:a.score-b.score);
+    return scored.map(v=>v.a);
+  }
+  function aiSearch(pos,mask,side,depth,alpha,beta,table,budget){
+    if(--budget.nodes<0)return aiEval(pos,mask);
+    let occupied=0;for(const v of pos)if(v)occupied++;
+    if(depth<=0||occupied===SIZE*SIZE)return aiEval(pos,mask);
+    const key=aiKey(pos,mask,side),oa=alpha,ob=beta,hit=table.get(key);
+    if(hit&&hit.depth>=depth){if(hit.flag==='exact')return hit.value;if(hit.flag==='lower')alpha=Math.max(alpha,hit.value);if(hit.flag==='upper')beta=Math.min(beta,hit.value);if(alpha>=beta)return hit.value;}
+    let actions=aiOrder(pos,mask,side,aiActions(pos,mask));
+    if(!actions.length)return aiEval(pos,mask);
+    // Keep every available line-drawing action in the candidate list, plus the strongest placement moves.
+    const cap=depth>=5?13:depth===4?11:depth===3?9:actions.length;
+    if(actions.length>cap){const lines=actions.filter(a=>a.type==='line');const places=actions.filter(a=>a.type==='place').slice(0,Math.max(0,cap-lines.length));actions=aiOrder(pos,mask,side,[...lines,...places]);}
+    const max=side==='X';let best=max?-Infinity:Infinity;
+    for(const a of actions){let m=mask;if(a.type==='place')pos[a.i]=side;else m|=a.bit;
+      const val=aiSearch(pos,m,side==='X'?'O':'X',depth-1,alpha,beta,table,budget);
+      if(a.type==='place')pos[a.i]='';
+      if(max){best=Math.max(best,val);alpha=Math.max(alpha,best);}else{best=Math.min(best,val);beta=Math.min(beta,best);}
+      if(beta<=alpha||budget.nodes<0)break;
+    }
+    let flag='exact';if(best<=oa)flag='upper';else if(best>=ob)flag='lower';if(table.size<100000)table.set(key,{depth,value:best,flag});
+    return best;
+  }
+  function chooseComAction(){
+    const pos=board.flat(),mask=currentMask();let actions=aiActions(pos,mask);if(!actions.length)return null;
+    const empty=pos.reduce((n,v)=>n+(v?0:1),0),unused=SIDES.filter(s=>!drawn[s]).length,remaining=empty+unused;
+    let depth=6;if(remaining<=10)depth=remaining;else if(remaining<=15)depth=7;
+    const nodeLimit=SIZE===5?80000:SIZE===7?36000:19000;
+    const table=new Map(),budget={nodes:nodeLimit};actions=aiOrder(pos,mask,'X',actions);
+    let best=-Infinity,bestAction=actions[0],alpha=-Infinity;
+    for(const a of actions){let m=mask;if(a.type==='place')pos[a.i]='X';else m|=a.bit;
+      const value=aiSearch(pos,m,'O',Math.max(0,depth-1),alpha,Infinity,table,budget);
+      if(a.type==='place')pos[a.i]='';
+      if(value>best){best=value;bestAction=a;}alpha=Math.max(alpha,best);if(budget.nodes<0)break;
+    }
+    return bestAction;
+  }
+  function fullyOutlined(){return SIDES.every(s=>drawn[s]);}
+  function unlocked(r,c){
+    // 初期解放領域は盤面中央の3×3。外周の線を引くと、その方向の帯全体が解放される。
+    // 四方が線で囲まれた領域にあるマスだけが配置可能。
+    const rs=coreStart(),re=coreEnd();
+    const rowAllowed=(r>=rs&&r<re)||(r<rs&&drawn.top)||(r>=re&&drawn.bottom);
+    const colAllowed=(c>=rs&&c<re)||(c<rs&&drawn.left)||(c>=re&&drawn.right);
+    return rowAllowed&&colAllowed;
+  }
+  function available(){const a=[];for(let r=0;r<SIZE;r++)for(let c=0;c<SIZE;c++)if(unlocked(r,c)&&!board[r][c])a.push([r,c]);return a;}
+  function countRuns(player){let count=0,marked=new Set();for(let r=0;r<SIZE;r++)for(let c=0;c<SIZE;c++){
+    if(board[r][c]!==player)continue;
+    for(const [dr,dc] of dirs){let r2=r+2*dr,c2=c+2*dc;if(r2<0||c2<0||r2>=SIZE||c2>=SIZE)continue;
+      if(board[r+dr][c+dc]===player&&board[r2][c2]===player){count++;for(let k=0;k<3;k++)marked.add(`${r+k*dr},${c+k*dc}`);}
+    }
+  }return {count,marked};}
+  function place(r,c,byCom=false){
+    if(finished||rouletteSpinning||thinking&&!byCom||(!byCom&&!isHumanTurn())||board[r][c]||!unlocked(r,c))return;
+    // Placement is only allowed when at least one unlocked cell is available.
+    board[r][c]=turn;moveCount++;
+    roundScore.O=countRuns('O').count;roundScore.X=countRuns('X').count;
+    log(`${turn==='O'?'○':'×'}を${r+1}行${c+1}列に配置（○ ${roundScore.O} / × ${roundScore.X}ペア）`);
+    if(moveCount===SIZE*SIZE){endRound();render();return;}
+    turn=turn==='O'?'X':'O';
+    if(available().length===0){
+      say(`${turn==='O'?'○':'×'}の番です。置けるマスがありません。外周に線を引くことができます。`);
+    }else say(`${turn==='O'?'○':'×'}の番です。記号を置くか、外周に線を引いてください。`);
+    render();scheduleComTurn();
+  }
+  function drawSide(side,byCom=false){
+    // 線は自分のターン中ならいつでも引ける。1本引いた時点で即座に相手へ手番を渡す。
+    if(finished||rouletteSpinning||thinking&&!byCom||(!byCom&&!isHumanTurn())||drawn[side])return;
+    const drawer=turn;
+    drawn[side]=true;
+    turn=turn==='O'?'X':'O';
+    const sideName={top:'上辺',right:'右辺',bottom:'下辺',left:'左辺'}[side];
+    log(`${drawer==='O'?'○':'×'}が外周の${sideName}に線を引いた。手番終了（${SIDES.filter(s=>drawn[s]).length}/4）`);
+    if(fullyOutlined())say(`${drawer==='O'?'○':'×'}が外周の${sideName}に線を引き、手番終了。外周が完成しました。次は${turn==='O'?'○':'×'}の番です。四方が線で囲まれた空きマスに記号を置いてください。`);
+    else say(`${drawer==='O'?'○':'×'}が外周の${sideName}に線を引き、手番終了。次は${turn==='O'?'○':'×'}の番です。四方が線で囲まれた空きマスに記号を置くか、別の外周に線を引いてください。`);
+    render();scheduleComTurn();
+  }
+  function endRound(){
+    finished=true;roundScore.O=countRuns('O').count;roundScore.X=countRuns('X').count;
+    totalScore.O+=roundScore.O;totalScore.X+=roundScore.X;
+    log(`試合${round}終了：○ ${roundScore.O} / × ${roundScore.X}ペア`);
+    if(round===1){say(`第1試合終了。○ ${roundScore.O}ペア、× ${roundScore.X}ペア。第2試合へ進んでください。`);$('nextRound').textContent='第2試合へ';$('nextRound').hidden=false;}
+    else {const result=totalScore.O===totalScore.X?'引き分け':totalScore.O>totalScore.X?'○の勝利！':'×の勝利！';say(`全試合終了。累計は○ ${totalScore.O}ペア、× ${totalScore.X}ペア。${result}`);$('nextRound').textContent='もう一度遊ぶ';$('nextRound').hidden=false;}
+  }
+  function render(){
+    $('roundLabel').textContent=`${round} / 2`;$('turn').textContent=finished?'試合終了':`手番：${turn==='O'?'○':'×'}`;$('turn').className='pill '+(turn==='O'?'o':'x');$('boardSizeLabel').textContent=`${SIZE}×${SIZE}`;$('boardSizeSelect').value=String(SIZE);boardEl.style.gridTemplateColumns=`repeat(${SIZE},minmax(0,1fr))`;boardEl.style.gridTemplateRows=`repeat(${SIZE},minmax(0,1fr))`;boardEl.setAttribute('aria-label',`${SIZE}×${SIZE}ゲーム盤`);
+    $('oRound').textContent=roundScore.O;$('xRound').textContent=roundScore.X;$('oTotal').textContent=totalScore.O;$('xTotal').textContent=totalScore.X;
+    $('lineCount').textContent=`外周の線：${SIDES.filter(s=>drawn[s]).length} / 4`;
+    const canDraw=!finished&&isHumanTurn()&&!thinking&&!rouletteSpinning;
+    $('pvpMode').classList.toggle('primary',mode==='pvp');$('comMode').classList.toggle('primary',mode==='com');
+    $('modeHint').textContent=mode==='pvp'?'2人で交互に操作。ルーレットで先攻記号を決めます。':'あなたは○、COMは×。×が先攻ならCOMから開始します。第2試合は逆の記号からです。';
+    $('rouletteButton').disabled=rouletteSpinning;$('boardSizeSelect').disabled=rouletteSpinning;$('pvpMode').disabled=rouletteSpinning;$('comMode').disabled=rouletteSpinning;$('rouletteWheel').classList.toggle('spinning',rouletteSpinning);$('rouletteButton').textContent=rouletteSpinning?'抽選中…':'先攻・後攻ルーレット';
+    for(const edge of edgeEls){const side=edge.dataset.side;edge.classList.toggle('drawn',drawn[side]);edge.classList.toggle('can-draw',canDraw&&!drawn[side]);edge.disabled=!canDraw||drawn[side];edge.textContent=drawn[side]?({top:'上辺 ✓',right:'右辺 ✓',bottom:'下辺 ✓',left:'左辺 ✓'}[side]):({top:'上辺を引く',right:'右辺',bottom:'下辺を引く',left:'左辺'}[side]);}
+    $('boardNote').textContent=finished?'試合終了です。次の試合へ進むか、最初からやり直してください。':'明るいマスは四方が線で囲まれています。記号を置くか、外周の未完成の辺をいつでも引けます。線を引くと手番が相手に移ります。';
+    boardEl.innerHTML='';const o=countRuns('O'),x=countRuns('X'),scored=new Set([...o.marked,...x.marked]);
+    for(let r=0;r<SIZE;r++)for(let c=0;c<SIZE;c++){
+      const b=document.createElement('button');b.type='button';b.className='cell';const isOpen=unlocked(r,c)&&!finished&&isHumanTurn()&&!thinking&&!rouletteSpinning;
+      const rs=coreStart(),re=coreEnd();
+      if(r<rs&&!drawn.top)b.classList.add('open-top');
+      if(r>=re&&!drawn.bottom)b.classList.add('open-bottom');
+      if(c<rs&&!drawn.left)b.classList.add('open-left');
+      if(c>=re&&!drawn.right)b.classList.add('open-right');
+      if(board[r][c])b.classList.add(board[r][c]==='O'?'o':'x');
+      else if(isOpen)b.classList.add('available');else b.classList.add('locked');
+      if(scored.has(`${r},${c}`))b.classList.add('scored');const center=Math.floor(SIZE/2);if(r===center&&c===center&&!board[r][c]&&SIDES.every(s=>!drawn[s]))b.classList.add('center-start');
+      b.textContent=board[r][c]==='O'?'○':board[r][c]==='X'?'×':(r===center&&c===center?'＋':'');
+      b.setAttribute('aria-label',`${r+1}行${c+1}列、${board[r][c]==='O'?'○':board[r][c]==='X'?'×':isOpen?'空き':'未解放'}`);
+      b.disabled=!isOpen||!!board[r][c]||finished;b.addEventListener('click',()=>place(r,c));boardEl.appendChild(b);
+    }
+  }
+  function say(s){$('message').textContent=s;}
+  function log(s){const li=document.createElement('li');li.textContent=s;$('log').prepend(li);while($('log').children.length>35)$('log').lastElementChild.remove();}
+  function resetTournament(message='設定を変更しました。新しいゲームを開始します。'){
+    if(comTimer!==null){clearTimeout(comTimer);comTimer=null;}
+    round=1;totalScore={O:0,X:0};$('log').innerHTML='';resetRound();
+    if(message)log(message);
+  }
+  function opposite(symbol){return symbol==='O'?'X':'O';}
+  function spinRoulette(){
+    if(rouletteSpinning)return;
+    if(comTimer!==null){clearTimeout(comTimer);comTimer=null;}thinking=false;
+    if(rouletteTimer!==null)clearTimeout(rouletteTimer);if(rouletteCycle!==null)clearInterval(rouletteCycle);
+    rouletteSpinning=true;$('rouletteButton').disabled=true;$('boardSizeSelect').disabled=true;$('pvpMode').disabled=true;$('comMode').disabled=true;
+    $('rouletteResult').textContent='抽選中…';$('rouletteWheel').classList.add('spinning');
+    let flip=false;rouletteCycle=setInterval(()=>{flip=!flip;$('rouletteWheel').textContent=flip?'○':'×';},90);
+    rouletteTimer=setTimeout(()=>{
+      if(rouletteCycle!==null){clearInterval(rouletteCycle);rouletteCycle=null;}
+      firstSymbol=Math.random()<0.5?'O':'X';rouletteSpinning=false;rouletteTimer=null;
+      $('rouletteWheel').classList.remove('spinning');$('rouletteWheel').textContent=firstSymbol==='O'?'○':'×';
+      $('rouletteResult').textContent=`第1試合の先攻：${firstSymbol==='O'?'○':'×'}／第2試合は${opposite(firstSymbol)==='O'?'○':'×'}から`;
+      resetTournament(`先攻ルーレット結果：第1試合は${firstSymbol==='O'?'○':'×'}、第2試合は${opposite(firstSymbol)==='O'?'○':'×'}が先攻`);render();
+    },1700);
+    render();
+  }
+  edgeEls.forEach(e=>e.addEventListener('click',()=>drawSide(e.dataset.side)));
+  $('pvpMode').addEventListener('click',()=>{if(mode!=='pvp'&&!rouletteSpinning){mode='pvp';resetTournament('対人戦に切り替え');render();}});
+  $('comMode').addEventListener('click',()=>{if(mode!=='com'&&!rouletteSpinning){mode='com';resetTournament('COM戦に切り替え');render();}});
+  $('boardSizeSelect').addEventListener('change',e=>{
+    if(rouletteSpinning)return;const nextSize=Number(e.target.value);if(![5,7,9].includes(nextSize))return;
+    SIZE=nextSize;buildAISegments();resetTournament(`盤面サイズを${SIZE}×${SIZE}に変更`);render();
+  });
+  $('rouletteButton').addEventListener('click',spinRoulette);
+  $('nextRound').addEventListener('click',()=>{if(round===1){round=2;resetRound();}else{round=1;totalScore={O:0,X:0};$('log').innerHTML='';resetRound();}});
+  $('restart').addEventListener('click',()=>{if(rouletteSpinning)return;round=1;totalScore={O:0,X:0};$('log').innerHTML='';resetRound();});
+  buildAISegments();$('rouletteWheel').textContent='○×';$('rouletteResult').textContent='現在の先攻：○（抽選前）';
+  resetRound();
+})();
+</script>
+</body>
+</html>
